@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-18
+> **Last Updated**: 2026-02-18 (v0.2.2)
 
 ---
 
@@ -116,6 +116,30 @@
 
 ---
 
+### 2026-02-18 — Corrections Stabilité Enregistrement Multi-Pass 🔷
+
+**Intent**: Corriger deux bugs critiques qui bloquaient le deuxième enregistrement (et les suivants) lors d'une session.
+
+**Prompt(s)**:
+> "j'ai essayé à nouveau et le démarrage enregistrement de la transcription a bloqué — TypeError: Cannot read properties of null (reading 'device')"
+> "j'ai essayé de faire un deuxième enregistrement à la suite, et ça bloque, rien ne se passe"
+
+**Tool**: Claude (Sonnet 4.6)
+
+**Outcome**:
+- Bug #1 corrigé : `mapStructToTicket(null)` plantait sur le premier champ du tableau (`device`) car le SDK Gamilab émet `thread:struct_current: null` à l'init du thread — guard ajouté
+- Bug #2 corrigé : `handleStopRecording` n'avait pas de protection contre les double-appels — un verrou `isStoppingRef` + mise à jour immédiate de l'état UI sans attendre l'événement SDK
+
+**Surprise**: Le premier bug (null device) se produisait à chaque init, mais l'erreur était non-fatale dans la majorité des cas — sauf qu'elle corrompait silencieusement l'état du SDK, ce qui expliquait pourquoi le deuxième enregistrement était parfois bloqué même si le premier semblait avoir fonctionné.
+
+**Friction**: Notion Web Clipper avait affiché une notification "Démarrer la transcription" au même moment, ce qui semblait pointer vers une interférence audio externe — piste incorrecte. Le vrai bug était interne.
+
+**Resolution**: Guard null dans `mapStructToTicket` + verrou UI dans `handleStopRecording` + `finalizeExtraction()` force maintenant `setIsRecording(false)` comme filet de sécurité.
+
+**Time**: ~15 min
+
+---
+
 ### 2026-02-18 — Documentation & Changelog 🔹
 
 **Intent**: Documenter l'historique complet du projet dans CHANGELOG, README et STORY
@@ -166,6 +190,8 @@
 
 - 2026-02-18: Quand un SDK Web utilise des événements pour son initialisation, toujours vérifier si un mécanisme de retry existe avant de complexifier la gestion de la race condition. Gamilab re-fire `gami:init` si `Gami()` n'est pas appelé — ça simplifie tout.
 - 2026-02-18: Les APIs tierces (Notion, etc.) bloquent souvent les appels directs depuis le navigateur par CORS. Toujours prévoir une couche serveur (Edge Function) dès le scaffolding pour éviter de devoir refactorer plus tard.
+- 2026-02-18: Un SDK peut émettre des événements "vides" (null, {}) lors de son initialisation — toujours défendre les fonctions de mapping contre ces valeurs limites. Ne pas supposer que les données reçues sont toujours valides même si elles viennent d'une source "contrôlée".
+- 2026-02-18: Quand un bouton d'arrêt ne répond pas visuellement immédiatement, l'utilisateur reclique. La solution n'est pas un debounce — c'est de mettre à jour l'état UI instantanément au clic, sans attendre la confirmation du système sous-jacent.
 
 ---
 

@@ -6,6 +6,17 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.2.2] - 2026-02-18
+
+### Corrigé
+- `mapStructToTicket()` : ajout d'un guard `if (!struct) return {}` — le SDK envoie `null` sur `thread:struct_current` lors de l'init du thread, provoquant une `TypeError: Cannot read properties of null (reading 'device')` qui corrompait l'état du SDK et bloquait les enregistrements suivants
+- `handleStopRecording` : ajout d'un verrou `isStoppingRef` qui empêche le double-appel à `pause_recording()` (l'UI ne répondait pas visuellement immédiatement, ce qui poussait l'utilisateur à recliquer)
+- `handleStopRecording` : `isRecording` et `isProcessing` sont maintenant mis à jour immédiatement au clic, sans attendre l'événement SDK `audio:recording → stopped` (qui pouvait ne jamais arriver)
+- `finalizeExtraction()` : force `setIsRecording(false)` pour garantir le déblocage de l'UI même si l'événement SDK n'arrive pas
+- Timeout précédent effacé avant d'en créer un nouveau dans `handleStopRecording`
+
+---
+
 ## [0.2.0] - 2026-02-18
 
 ### Ajouté
