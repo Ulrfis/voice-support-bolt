@@ -63,6 +63,7 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
   const gamiRef = useRef<GamiSDK | null>(null);
   const eventRefsRef = useRef<symbol[]>([]);
   const finalizingRef = useRef(false);
+  const isStoppingRef = useRef(false);
   const extractionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getFieldLabel = (fieldName: string) =>
@@ -89,6 +90,8 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
       extractionTimeoutRef.current = null;
     }
     finalizingRef.current = false;
+    isStoppingRef.current = false;
+    setIsRecording(false);
     setIsProcessing(false);
     setHasResult(true);
     setPassCount(prev => prev + 1);
@@ -201,6 +204,7 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
     if (!gamiRef.current) return;
     setHasResult(false);
     finalizingRef.current = false;
+    isStoppingRef.current = false;
     setProgress(0);
     try {
       if (passCount === 0) {
@@ -218,11 +222,15 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
   };
 
   const handleStopRecording = async () => {
-    if (!gamiRef.current) return;
-    console.log('[Gamilab] pause_recording() — waiting for extraction_status:done (6s timeout)');
+    if (!gamiRef.current || isStoppingRef.current) return;
+    isStoppingRef.current = true;
     finalizingRef.current = true;
+    setIsRecording(false);
+    setIsProcessing(true);
+    console.log('[Gamilab] pause_recording() — waiting for extraction_status:done (6s timeout)');
     await gamiRef.current.pause_recording();
 
+    if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
     extractionTimeoutRef.current = setTimeout(() => {
       if (finalizingRef.current) {
         console.warn('[Gamilab] extraction_status timeout — forcing finalization');
