@@ -5,8 +5,11 @@ import { Screen2Recording } from './components/Screen2Recording';
 import { Screen3HITL } from './components/Screen3HITL';
 import { Screen4Confirmation } from './components/Screen4Confirmation';
 import { Backoffice } from './components/Backoffice';
+import { DebugPanel } from './components/DebugPanel';
 import { supabase } from './lib/supabase';
 import type { UseCaseId, Ticket, Language } from './types';
+
+const DEBUG_MODE = new URLSearchParams(window.location.search).has('debug-panel');
 
 type Screen = 'home' | 'recording' | 'hitl' | 'confirmation' | 'backoffice';
 
@@ -114,7 +117,8 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className={`min-h-screen bg-white transition-all duration-300 ${DEBUG_MODE ? 'pr-[380px]' : ''}`}>
+      {DEBUG_MODE && <DebugPanel />}
       {currentScreen !== 'backoffice' && (
         <header className="bg-white border-b border-light-gray sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">

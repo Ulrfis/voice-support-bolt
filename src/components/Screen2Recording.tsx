@@ -83,6 +83,7 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
   };
 
   const finalizeExtraction = () => {
+    console.log('[Gamilab] finalizeExtraction() called');
     if (extractionTimeoutRef.current) {
       clearTimeout(extractionTimeoutRef.current);
       extractionTimeoutRef.current = null;
@@ -92,6 +93,7 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
     setHasResult(true);
     setPassCount(prev => prev + 1);
     setProgress(100);
+    console.log('[Gamilab] hasResult = true, ready for HITL');
   };
 
   useEffect(() => {
@@ -100,54 +102,72 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
 
     const init = async () => {
       try {
+        console.log('[Gamilab] waitForGami()...');
         gami = await waitForGami();
         if (!mounted) return;
 
+        console.log('[Gamilab] connect(gamilab.ch)...');
         await gami.connect('gamilab.ch');
         if (!mounted) return;
 
-        await gami.use_portal(PORTAL_IDS[useCaseId]);
+        const portalId = PORTAL_IDS[useCaseId];
+        console.log(`[Gamilab] use_portal(${portalId}) for ${useCaseId}`);
+        await gami.use_portal(portalId);
         if (!mounted) return;
 
+        console.log('[Gamilab] create_thread()...');
         await gami.create_thread();
         if (!mounted) return;
 
+        console.log('[Gamilab] Ready. Registering event listeners.');
         gamiRef.current = gami;
 
         const refs: symbol[] = [];
 
         refs.push(gami.on('audio:recording', (state: unknown) => {
+          console.log('[Gamilab] audio:recording →', state);
           const recording = state === 'recording';
           setIsRecording(recording);
           if (!recording && finalizingRef.current) {
+            console.log('[Gamilab] Recording stopped, processing...');
             setIsProcessing(true);
           }
         }));
 
         refs.push(gami.on('thread:text_current', (text: unknown) => {
+          const preview = typeof text === 'string' ? text.slice(-60) : String(text);
+          console.log('[Gamilab] thread:text_current →', preview);
           setLiveText(text as string || '');
         }));
 
         refs.push(gami.on('thread:text_history', (text: unknown) => {
+          const len = typeof text === 'string' ? text.length : 0;
+          console.log(`[Gamilab] thread:text_history → ${len} chars`);
           setTranscript(text as string || '');
           setLiveText('');
         }));
 
         refs.push(gami.on('thread:struct_current', (data: unknown) => {
+          console.log('[Gamilab] thread:struct_current →', data);
           const mapped = mapStructToTicket(data as Record<string, unknown>);
+          console.log('[Gamilab] mapped struct →', mapped);
           setStructData(prev => ({ ...prev, ...mapped }));
         }));
 
         refs.push(gami.on('thread:extraction_status', (status: unknown) => {
+          console.log(`[Gamilab] thread:extraction_status → ${status} (finalizing: ${finalizingRef.current})`);
           if (status === 'done' && finalizingRef.current) {
+            console.log('[Gamilab] Extraction done, finalizing.');
             finalizeExtraction();
           }
         }));
 
         eventRefsRef.current = refs;
         setInitStatus('ready');
+        console.log('[Gamilab] Init complete.');
       } catch (err) {
         if (!mounted) return;
+        console.error('[Gamilab] Init error:', err);
         setInitStatus('error');
         setInitError(err instanceof Error ? err.message : String(err));
       }
@@ -184,11 +204,14 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
     setProgress(0);
     try {
       if (passCount === 0) {
+        console.log('[Gamilab] start_recording()');
         await gamiRef.current.start_recording();
       } else {
+        console.log(`[Gamilab] resume_recording() (pass ${passCount})`);
         await gamiRef.current.resume_recording();
       }
     } catch (err) {
+      console.error('[Gamilab] Recording start error:', err);
       setInitStatus('error');
       setInitError(err instanceof Error ? err.message : String(err));
     }
@@ -196,11 +219,13 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
 
   const handleStopRecording = async () => {
     if (!gamiRef.current) return;
+    console.log('[Gamilab] pause_recording() — waiting for extraction_status:done (6s timeout)');
     finalizingRef.current = true;
     await gamiRef.current.pause_recording();
 
     extractionTimeoutRef.current = setTimeout(() => {
       if (finalizingRef.current) {
+        console.warn('[Gamilab] extraction_status timeout — forcing finalization');
         finalizeExtraction();
       }
     }, 6000);
