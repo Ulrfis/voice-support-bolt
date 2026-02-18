@@ -51,7 +51,8 @@ const stringFields = [
   'request_type', 'description', 'urgency', 'context', 'expected_behavior', 'ideas_needs',
 ];
 
-export function mapStructToTicket(struct: Record<string, unknown>): Partial<Ticket> {
+export function mapStructToTicket(struct: Record<string, unknown> | null | undefined): Partial<Ticket> {
+  if (!struct) return {};
   const result: Partial<Ticket> = {};
 
   stringFields.forEach(f => {
