@@ -1,9 +1,9 @@
-# [PROJECT_NAME] — Development Story
+# Audiogami — Development Story
 
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2025-12-15  
+> **Last Updated**: 2026-02-18
 
 ---
 
@@ -49,8 +49,8 @@
 
 | Tool | Role |
 |------|------|
-| [e.g., Lovable] | [e.g., UI prototyping] |
-| [e.g., Claude] | [e.g., Logic & integrations] |
+| Bolt.new | Prototypage UI initial, structure du projet |
+| Claude (Sonnet 4.6) | Logique, intégrations API, refactoring, documentation |
 
 ---
 
@@ -82,6 +82,47 @@
 **Outcome**: Updated index.html with Audiogami logo as favicon and added comprehensive OG/Twitter meta tags for social sharing
 
 **Time**: ~2 min
+
+---
+
+### 2026-02-18 — Intégration SDK Gamilab (Enregistrement & Extraction Réels) 🔷
+
+**Intent**: Remplacer la simulation typewriter demo par une vraie expérience : enregistrement microphone réel, transcription live, extraction structurée en temps réel via Gamilab, puis push vers Notion.
+
+**Prompt(s)**:
+> "Il faut intégrer la SDK de Gamilab, voir les fichiers attachés pour la documentation. L'objectif est de pouvoir remplacer la mécanique demo par un réel usage de la SDK Gamilab permettant de faire l'expérience réellement, avec Gamilab qui fait la transcription + transformation et ensuite pousser le résultat structuré vers Notion."
+
+**Tool**: Claude (Sonnet 4.6)
+
+**Outcome**:
+- 4 Modèles Gamilab créés via l'API REST avec schémas mappés exactement sur le type `Ticket` TypeScript
+- 4 Portails créés (un par cas d'usage), IDs stockés en variables d'environnement
+- `Screen2Recording` entièrement réécrit — plus aucune donnée simulée
+- Connexion WebSocket automatique au montage du composant, création de thread, démarrage d'enregistrement
+- Transcription live avec curseur animé, champs structurés qui apparaissent au fur et à mesure
+- Détection des champs manquants → proposition d'enregistrement complémentaire ciblé
+- Architecture Notion scaffoldée (placeholder prêt pour Edge Function Supabase)
+- Build propre, zéro erreur TypeScript
+
+**Surprise**: Le SDK Gamilab a un mécanisme de retry sur `gami:init` — si `Gami()` n'est pas appelé, l'événement se re-déclenche. Ce comportement rend l'initialisation robuste sans avoir à gérer de race condition complexe.
+
+**Friction**:
+- La distinction entre extraction "en cours pendant l'enregistrement" et "finalisée après arrêt" nécessitait un guard ref (`finalizingRef`) pour éviter les faux positifs sur `thread:extraction_status: done`.
+- L'API Notion ne supporte pas les appels directs depuis le navigateur (CORS) — nécessite une Edge Function Supabase pour le push.
+
+**Resolution**: Guard ref synchrone (`finalizingRef.current = true` avant `pause_recording()`) résout proprement la détection de fin d'extraction. Push Notion architecturé comme placeholder avec instructions claires.
+
+**Time**: ~45 min
+
+---
+
+### 2026-02-18 — Documentation & Changelog 🔹
+
+**Intent**: Documenter l'historique complet du projet dans CHANGELOG, README et STORY
+
+**Outcome**: README réécrit avec architecture, tableau des portails, guide d'intégration Gamilab, instructions Notion. CHANGELOG initialisé avec v0.1.0 (prototype demo) et v0.2.0 (SDK réel). STORY mise à jour.
+
+**Time**: ~5 min
 
 ---
 
@@ -123,8 +164,8 @@
 
 *Learnings that transcend this specific project. Things you'd tell someone starting a similar journey.*
 
-- [DATE]: [Insight]
-- [DATE]: [Insight]
+- 2026-02-18: Quand un SDK Web utilise des événements pour son initialisation, toujours vérifier si un mécanisme de retry existe avant de complexifier la gestion de la race condition. Gamilab re-fire `gami:init` si `Gami()` n'est pas appelé — ça simplifie tout.
+- 2026-02-18: Les APIs tierces (Notion, etc.) bloquent souvent les appels directs depuis le navigateur par CORS. Toujours prévoir une couche serveur (Edge Function) dès le scaffolding pour éviter de devoir refactorer plus tard.
 
 ---
 
@@ -153,7 +194,7 @@
 *When ready to generate the narrative, use this prompt with the entire STORY.md as context:*
 
 ```
-You are helping me write the genesis story of [PROJECT_NAME]. 
+You are helping me write the genesis story of Audiogami.
 
 Using the documented journey in this file, craft a compelling narrative following this structure:
 1. Open with the Friction (make readers feel the problem)
