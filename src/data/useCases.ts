@@ -53,13 +53,13 @@ export const useCases: UseCase[] = [
     questions: {
       fr: [
         'Quel est votre numéro de commande ?',
-        'Quel problème rencontrez-vous ?',
-        'Avez-vous déjà contacté le transporteur ?'
+        'Quel type de problème rencontrez-vous ?',
+        'Quel produit est concerné par cette commande ?'
       ],
       en: [
         'What is your order number?',
-        'What problem are you experiencing?',
-        'Have you already contacted the carrier?'
+        'What type of problem are you experiencing?',
+        'Which product is affected by this order?'
       ]
     },
     categories: ['delivery', 'product_defect', 'wrong_item', 'refund', 'other'],

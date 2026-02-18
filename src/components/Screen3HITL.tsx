@@ -154,7 +154,7 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
         onClick={onBack}
         className="mb-3 flex items-center gap-2 text-slate hover:text-charcoal transition-colors text-sm"
       >
-        ← {t('back')}
+        ← {language === 'fr' ? 'Retour à l\'enregistrement' : 'Back to recording'}
       </button>
 
       <div className="bg-off-white border border-light-gray rounded-lg shadow-sm p-4 mb-3">
@@ -272,12 +272,25 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
           </div>
         </div>
 
+        {!allRequiredFieldsComplete && (
+          <div className="mb-3 flex items-start gap-2 bg-chunky-bee bg-opacity-10 border border-chunky-bee border-opacity-30 rounded-lg p-3">
+            <span className="text-chunky-bee shrink-0 mt-0.5">🎤</span>
+            <p className="text-xs text-charcoal">
+              {language === 'fr'
+                ? 'Certains champs sont manquants. Vous pouvez les compléter ici ou revenir à l\'enregistrement pour les dicter à voix haute.'
+                : 'Some fields are missing. You can fill them here or go back to recording to dictate them aloud.'}
+            </p>
+          </div>
+        )}
         <div className="flex gap-3">
           <button
             onClick={onBack}
-            className="px-4 py-2 bg-off-white border border-light-gray text-charcoal rounded hover:bg-light-gray font-medium transition-colors text-sm"
+            className="flex items-center gap-1.5 px-4 py-2 bg-off-white border border-light-gray text-charcoal rounded hover:bg-light-gray font-medium transition-colors text-sm shrink-0"
           >
-            {t('completeVoice')}
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            {language === 'fr' ? 'Dicter à la voix' : 'Dictate by voice'}
           </button>
           <button
             onClick={() => onValidate({ ...formData, raw_transcript: transcript })}

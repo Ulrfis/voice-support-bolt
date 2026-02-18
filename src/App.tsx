@@ -25,6 +25,29 @@ function AppContent() {
   };
 
   const handleRecordingComplete = async (data: Partial<Ticket>, trans: string, prompt: string) => {
+    setTicketData(data);
+    setTranscript(trans);
+    setPass2Prompt(prompt);
+
+    if (createdTicket) {
+      const { data: updated, error } = await supabase
+        .from('tickets')
+        .update({ ...data, raw_transcript: trans })
+        .eq('id', createdTicket.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating ticket:', error);
+        alert('Error updating ticket');
+        return;
+      }
+
+      setCreatedTicket(updated);
+      setCurrentScreen('hitl');
+      return;
+    }
+
     const ticketToCreate = {
       ...data,
       use_case: selectedUseCase!,
@@ -48,9 +71,6 @@ function AppContent() {
     }
 
     setCreatedTicket(newTicket);
-    setTicketData(data);
-    setTranscript(trans);
-    setPass2Prompt(prompt);
     setCurrentScreen('hitl');
   };
 
@@ -124,6 +144,7 @@ function AppContent() {
         {currentScreen === 'recording' && selectedUseCase && (
           <Screen2Recording
             useCaseId={selectedUseCase}
+            initialData={createdTicket ? ticketData : undefined}
             onComplete={handleRecordingComplete}
             onBack={handleBackToHome}
           />

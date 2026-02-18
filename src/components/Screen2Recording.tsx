@@ -6,11 +6,19 @@ import type { UseCaseId, Ticket } from '../types';
 
 interface Screen2RecordingProps {
   useCaseId: UseCaseId;
+  initialData?: Partial<Ticket>;
   onComplete: (ticketData: Partial<Ticket>, transcript: string, pass2Prompt: string) => void;
   onBack: () => void;
 }
 
 type InitStatus = 'connecting' | 'ready' | 'error';
+
+const QUESTION_FIELD_MAP: Record<UseCaseId, string[]> = {
+  it_support: ['device', 'symptoms', 'frequency'],
+  ecommerce: ['order_number', 'problem_type', 'product_description'],
+  saas: ['feature', 'symptoms', 'impact'],
+  dev_portal: ['request_type', 'description', 'urgency'],
+};
 
 const FIELD_LABELS: Record<string, { fr: string; en: string }> = {
   device: { fr: 'Appareil', en: 'Device' },
@@ -19,9 +27,9 @@ const FIELD_LABELS: Record<string, { fr: string; en: string }> = {
   environment: { fr: 'Environnement', en: 'Environment' },
   actions_tried: { fr: 'Actions essayées', en: 'Actions tried' },
   impact: { fr: 'Impact', en: 'Impact' },
-  order_number: { fr: 'Numéro de commande', en: 'Order number' },
+  order_number: { fr: 'N° de commande', en: 'Order number' },
   problem_type: { fr: 'Type de problème', en: 'Problem type' },
-  product_description: { fr: 'Description produit', en: 'Product description' },
+  product_description: { fr: 'Produit concerné', en: 'Affected product' },
   delivery_status: { fr: 'Statut livraison', en: 'Delivery status' },
   desired_resolution: { fr: 'Résolution souhaitée', en: 'Desired resolution' },
   purchase_date: { fr: 'Date d\'achat', en: 'Purchase date' },
@@ -35,26 +43,27 @@ const FIELD_LABELS: Record<string, { fr: string; en: string }> = {
   ideas_needs: { fr: 'Idées / Besoins', en: 'Ideas / Needs' },
 };
 
-export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2RecordingProps) {
+const EXCLUDED_DISPLAY_KEYS = new Set(['use_case', 'language', 'status', 'tags', 'priority', 'id', 'created_at', 'raw_transcript', 'email']);
+
+export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }: Screen2RecordingProps) {
   const { language, t } = useLanguage();
   const useCase = useCases.find(uc => uc.id === useCaseId);
 
   const [initStatus, setInitStatus] = useState<InitStatus>('connecting');
   const [initError, setInitError] = useState('');
-
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasResult, setHasResult] = useState(false);
-  const [passCount, setPassCount] = useState(0);
+  const [passCount, setPassCount] = useState(initialData ? 1 : 0);
   const [progress, setProgress] = useState(0);
-
   const [transcript, setTranscript] = useState('');
   const [liveText, setLiveText] = useState('');
-  const [structData, setStructData] = useState<Partial<Ticket>>({});
+  const [structData, setStructData] = useState<Partial<Ticket>>(initialData || {});
 
   const gamiRef = useRef<GamiSDK | null>(null);
   const eventRefsRef = useRef<symbol[]>([]);
   const finalizingRef = useRef(false);
+  const extractionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getFieldLabel = (fieldName: string) =>
     FIELD_LABELS[fieldName]?.[language] || fieldName;
@@ -71,6 +80,18 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
     return language === 'fr'
       ? `Merci de préciser : ${labels}`
       : `Please specify: ${labels}`;
+  };
+
+  const finalizeExtraction = () => {
+    if (extractionTimeoutRef.current) {
+      clearTimeout(extractionTimeoutRef.current);
+      extractionTimeoutRef.current = null;
+    }
+    finalizingRef.current = false;
+    setIsProcessing(false);
+    setHasResult(true);
+    setPassCount(prev => prev + 1);
+    setProgress(100);
   };
 
   useEffect(() => {
@@ -114,16 +135,12 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
 
         refs.push(gami.on('thread:struct_current', (data: unknown) => {
           const mapped = mapStructToTicket(data as Record<string, unknown>);
-          setStructData(mapped);
+          setStructData(prev => ({ ...prev, ...mapped }));
         }));
 
         refs.push(gami.on('thread:extraction_status', (status: unknown) => {
           if (status === 'done' && finalizingRef.current) {
-            finalizingRef.current = false;
-            setIsProcessing(false);
-            setHasResult(true);
-            setPassCount(prev => prev + 1);
-            setProgress(100);
+            finalizeExtraction();
           }
         }));
 
@@ -140,6 +157,7 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
 
     return () => {
       mounted = false;
+      if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
       if (gami) {
         eventRefsRef.current.forEach(ref => gami!.off(ref));
         eventRefsRef.current = [];
@@ -180,6 +198,12 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
     if (!gamiRef.current) return;
     finalizingRef.current = true;
     await gamiRef.current.pause_recording();
+
+    extractionTimeoutRef.current = setTimeout(() => {
+      if (finalizingRef.current) {
+        finalizeExtraction();
+      }
+    }, 6000);
   };
 
   const handleRetry = () => {
@@ -194,11 +218,15 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
 
   if (!useCase) return <div>Error loading use case</div>;
 
+  const questionFields = QUESTION_FIELD_MAP[useCaseId] || [];
   const missingFields = getMissingRequiredFields();
-  const capturedFieldCount = Object.entries(structData).filter(
-    ([k, v]) => !['use_case', 'language', 'status', 'tags'].includes(k) && v
-  ).length;
+  const extraCapturedFields = Object.entries(structData).filter(([key, value]) => {
+    if (!value || EXCLUDED_DISPLAY_KEYS.has(key)) return false;
+    if (questionFields.includes(key)) return false;
+    return true;
+  });
 
+  const answeredCount = questionFields.filter(f => !!structData[f as keyof Ticket]).length;
   const progressColor = hasResult ? 'bg-spicy-sweetcorn' : 'bg-chunky-bee';
 
   return (
@@ -207,11 +235,11 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-slate hover:text-charcoal transition-colors"
+            className="flex items-center gap-2 text-slate hover:text-charcoal transition-colors text-sm"
           >
             ← {t('back')}
           </button>
-          <h2 className="text-2xl font-bold text-charcoal font-grotesk">
+          <h2 className="text-xl font-bold text-charcoal font-grotesk">
             {useCase.icon} {useCase.name[language]}
           </h2>
         </div>
@@ -220,12 +248,12 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
         </span>
       </div>
 
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate">{t('progressLabel')}</span>
-          <span className="text-sm font-bold text-charcoal">{Math.round(progress)}%</span>
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-medium text-slate">{t('progressLabel')}</span>
+          <span className="text-xs font-bold text-charcoal">{Math.round(progress)}%</span>
         </div>
-        <div className="w-full h-2 bg-light-gray rounded-full overflow-hidden">
+        <div className="w-full h-1.5 bg-light-gray rounded-full overflow-hidden">
           <div
             className={`h-full transition-all duration-300 ${progressColor}`}
             style={{ width: `${progress}%` }}
@@ -233,24 +261,97 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-off-white border border-light-gray rounded-lg shadow-sm p-6 flex flex-col">
-          <h3 className="font-semibold text-charcoal mb-3 text-sm font-grotesk">
-            {language === 'fr' ? 'Questions clés :' : 'Key questions:'}
-          </h3>
-          <ul className="space-y-2 mb-6">
-            {useCase.questions[language].map((question, index) => (
-              <li key={index} className="flex items-start gap-2 text-sm">
-                <span className="text-spicy-sweetcorn font-semibold shrink-0">{index + 1}.</span>
-                <span className="text-slate">{question}</span>
-              </li>
-            ))}
-          </ul>
+      <div className="grid grid-cols-5 gap-5">
+        <div className="col-span-3 flex flex-col gap-4">
+          <div className="bg-off-white border border-light-gray rounded-lg shadow-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-charcoal text-sm font-grotesk">
+                {language === 'fr' ? 'Questions clés' : 'Key questions'}
+              </h3>
+              <span className="text-xs text-slate">
+                {answeredCount}/{questionFields.length} {language === 'fr' ? 'répondues' : 'answered'}
+              </span>
+            </div>
 
-          <div className="mt-auto pt-4 border-t border-light-gray">
+            <div className="space-y-2">
+              {useCase.questions[language].map((question, index) => {
+                const fieldName = questionFields[index];
+                const rawValue = fieldName ? structData[fieldName as keyof Ticket] : undefined;
+                const fieldValue = rawValue !== undefined && rawValue !== null
+                  ? (Array.isArray(rawValue) ? rawValue.join(', ') : String(rawValue))
+                  : undefined;
+                const hasAnswer = !!fieldValue;
+
+                return (
+                  <div
+                    key={index}
+                    className={`rounded-lg border transition-all duration-200 ${
+                      hasAnswer
+                        ? 'border-spicy-sweetcorn border-opacity-50 bg-spicy-sweetcorn bg-opacity-5'
+                        : 'border-light-gray bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <span
+                        className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                          hasAnswer
+                            ? 'bg-spicy-sweetcorn text-white'
+                            : isRecording
+                            ? 'bg-chunky-bee bg-opacity-30 text-chunky-bee border border-chunky-bee border-opacity-40 animate-pulse'
+                            : 'bg-light-gray text-slate'
+                        }`}
+                      >
+                        {hasAnswer ? '✓' : index + 1}
+                      </span>
+                      <span className={`text-sm flex-1 ${hasAnswer ? 'text-charcoal font-medium' : 'text-slate'}`}>
+                        {question}
+                      </span>
+                    </div>
+                    <div
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                        hasAnswer ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
+                      }`}
+                    >
+                      {hasAnswer && (
+                        <div className="px-4 pb-3 pl-12">
+                          <p className="text-sm text-rockman-blue font-medium leading-relaxed">
+                            {fieldValue}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {extraCapturedFields.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-light-gray">
+                <p className="text-xs font-semibold text-slate mb-2 uppercase tracking-wide">
+                  {language === 'fr' ? 'Infos complémentaires captées' : 'Additional captured info'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {extraCapturedFields.map(([key, value]) => {
+                    const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+                    return (
+                      <div
+                        key={key}
+                        className="inline-flex items-center gap-1.5 bg-rockman-blue bg-opacity-10 border border-rockman-blue border-opacity-20 rounded-full px-3 py-1"
+                      >
+                        <span className="text-xs text-slate font-medium">{getFieldLabel(key)} :</span>
+                        <span className="text-xs text-charcoal">{displayValue}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-off-white border border-light-gray rounded-lg shadow-sm p-5">
             {initStatus === 'connecting' && (
               <div className="flex flex-col items-center gap-3 py-4">
-                <div className="w-10 h-10 border-2 border-rockman-blue border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-rockman-blue border-t-transparent rounded-full animate-spin" />
                 <p className="text-sm text-slate">{t('connecting')}</p>
               </div>
             )}
@@ -288,70 +389,72 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
                 )}
 
                 {isRecording && (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="relative">
+                  <div className="flex items-center gap-4">
+                    <div className="relative shrink-0">
                       <div className="absolute inset-0 rounded-full bg-spicy-sweetcorn opacity-30 animate-ping" />
                       <button
                         onClick={handleStopRecording}
-                        className="relative w-16 h-16 rounded-full bg-spicy-sweetcorn text-white flex items-center justify-center shadow-lg hover:bg-chunky-bee transition-colors"
+                        className="relative w-12 h-12 rounded-full bg-spicy-sweetcorn text-white flex items-center justify-center shadow-lg hover:bg-chunky-bee transition-colors"
                       >
-                        <StopIcon className="w-6 h-6" />
+                        <StopIcon className="w-4 h-4" />
                       </button>
                     </div>
-                    <p className="text-sm font-medium text-spicy-sweetcorn animate-pulse">
-                      {t('recordingActive')}
-                    </p>
-                    <button
-                      onClick={handleStopRecording}
-                      className="text-xs text-slate hover:text-charcoal underline transition-colors"
-                    >
-                      {t('stopRecording')}
-                    </button>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-spicy-sweetcorn">{t('recordingActive')}</p>
+                      <button
+                        onClick={handleStopRecording}
+                        className="text-xs text-slate hover:text-charcoal underline transition-colors mt-0.5"
+                      >
+                        {t('stopRecording')}
+                      </button>
+                    </div>
+                    <WaveformIcon />
                   </div>
                 )}
 
                 {hasResult && !isRecording && !isProcessing && (
-                  <div className="flex flex-col gap-3">
-                    <div className="bg-white border border-light-gray rounded-lg p-3">
-                      <p className="text-xs font-semibold text-charcoal mb-1 font-grotesk">
-                        {language === 'fr' ? `${capturedFieldCount} champ(s) capturé(s)` : `${capturedFieldCount} field(s) captured`}
-                      </p>
-                      {missingFields.length === 0 ? (
-                        <p className="text-xs text-rockman-blue">{t('allFieldsCaptured')}</p>
-                      ) : (
-                        <>
-                          <p className="text-xs text-slate mb-2">{t('missingFieldsTitle')} :</p>
-                          <div className="space-y-1">
-                            {missingFields.map(f => (
-                              <div key={f} className="flex items-center gap-2 text-xs text-charcoal">
-                                <span className="text-chunky-bee">•</span>
-                                <span>{getFieldLabel(f)}</span>
-                              </div>
-                            ))}
-                          </div>
-                          {getMissingFieldsPrompt() && (
-                            <p className="mt-2 text-xs text-slate italic">{getMissingFieldsPrompt()}</p>
-                          )}
-                        </>
-                      )}
-                    </div>
-
+                  <div className="flex flex-col gap-2">
                     {missingFields.length > 0 && (
-                      <button
-                        onClick={handleStartRecording}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-chunky-bee text-charcoal rounded-lg font-medium text-sm hover:bg-spicy-sweetcorn hover:text-white transition-colors shadow-sm"
-                      >
-                        <MicIcon className="w-4 h-4" />
-                        {t('recordMissingInfo')}
-                      </button>
+                      <div className="bg-chunky-bee bg-opacity-10 border border-chunky-bee border-opacity-30 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-charcoal mb-1.5">
+                          {t('missingFieldsTitle')} :
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {missingFields.map(f => (
+                            <span key={f} className="text-xs bg-white border border-light-gray rounded-full px-2 py-0.5 text-charcoal">
+                              {getFieldLabel(f)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     )}
 
-                    <button
-                      onClick={handleContinue}
-                      className="w-full px-4 py-2 bg-rockman-blue text-white rounded-lg font-medium text-sm hover:bg-joust-blue transition-colors shadow-sm"
-                    >
-                      {t('continueToReview')}
-                    </button>
+                    {missingFields.length === 0 && (
+                      <div className="flex items-center gap-2 bg-spicy-sweetcorn bg-opacity-10 border border-spicy-sweetcorn border-opacity-30 rounded-lg p-3">
+                        <span className="text-spicy-sweetcorn font-bold text-base">✓</span>
+                        <p className="text-xs font-medium text-charcoal">{t('allFieldsCaptured')}</p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                      {missingFields.length > 0 && (
+                        <button
+                          onClick={handleStartRecording}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-off-white border border-light-gray text-charcoal rounded-lg font-medium text-xs hover:bg-light-gray transition-colors"
+                        >
+                          <MicIcon className="w-3.5 h-3.5" />
+                          {t('recordMissingInfo')}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleContinue}
+                        className={`flex items-center justify-center gap-1.5 px-4 py-2 bg-spicy-sweetcorn text-white rounded-lg font-medium text-sm hover:bg-chunky-bee transition-colors shadow-sm ${
+                          missingFields.length > 0 ? '' : 'w-full'
+                        }`}
+                      >
+                        {t('continueToReview')}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -359,85 +462,43 @@ export function Screen2Recording({ useCaseId, onComplete, onBack }: Screen2Recor
           </div>
         </div>
 
-        <div className="bg-off-white border border-light-gray rounded-lg shadow-sm p-6 flex flex-col gap-4">
-          <div>
-            <h3 className="font-semibold text-charcoal mb-2 text-sm font-grotesk">
-              {t('liveTranscription')}
-            </h3>
-            <div className="bg-white rounded-lg p-4 border border-light-gray min-h-32 max-h-48 overflow-y-auto">
-              {transcript || liveText ? (
-                <p className="text-slate text-sm whitespace-pre-wrap leading-relaxed">
-                  {transcript}
-                  {liveText && (
-                    <span className="text-slate opacity-70">
-                      {transcript ? ' ' : ''}{liveText}
-                      <span className="inline-block w-0.5 h-4 bg-slate ml-0.5 animate-pulse align-middle" />
-                    </span>
-                  )}
-                </p>
-              ) : (
-                <p className="text-silver text-sm italic">{t('speakNowHint')}</p>
-              )}
-            </div>
-          </div>
-
-          {Object.keys(structData).length > 0 && (
-            <div className="flex-1">
-              <h3 className="font-semibold text-charcoal mb-2 text-sm font-grotesk">
-                {t('extractedData')}
-              </h3>
-              <div className="space-y-2 max-h-72 overflow-y-auto">
-                {Object.entries(structData).map(([key, value]) => {
-                  if (!value || key === 'use_case' || key === 'language' || key === 'status') return null;
-                  const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
-                  if (!displayValue) return null;
-
-                  return (
-                    <div
-                      key={key}
-                      className="bg-spicy-sweetcorn bg-opacity-10 border border-spicy-sweetcorn border-opacity-40 rounded-lg p-3 animate-fade-in"
-                    >
-                      <div className="font-medium text-charcoal text-xs mb-0.5 font-grotesk">
-                        {getFieldLabel(key)}
-                      </div>
-                      <div className="text-slate text-xs">{displayValue}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {isRecording && Object.keys(structData).length === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center py-4">
-              <div className="flex items-center gap-1">
-                {[...Array(4)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-1 bg-spicy-sweetcorn rounded-full animate-pulse"
-                    style={{
-                      height: `${12 + i * 6}px`,
-                      animationDelay: `${i * 0.15}s`,
-                    }}
-                  />
-                ))}
-                <div className="w-1 bg-spicy-sweetcorn rounded-full animate-pulse h-8" style={{ animationDelay: '0.6s' }} />
-                {[...Array(4)].map((_, i) => (
-                  <div
-                    key={i + 5}
-                    className="w-1 bg-spicy-sweetcorn rounded-full animate-pulse"
-                    style={{
-                      height: `${24 - i * 6}px`,
-                      animationDelay: `${(i + 5) * 0.15}s`,
-                    }}
-                  />
-                ))}
-              </div>
-              <p className="text-xs text-slate">
-                {language === 'fr' ? 'Les champs s\'extraient pendant que vous parlez...' : 'Fields are extracted as you speak...'}
+        <div className="col-span-2 bg-off-white border border-light-gray rounded-lg shadow-sm p-5 flex flex-col">
+          <h3 className="font-semibold text-charcoal mb-3 text-sm font-grotesk">
+            {t('liveTranscription')}
+          </h3>
+          <div className="bg-white rounded-lg p-4 border border-light-gray flex-1 overflow-y-auto min-h-48">
+            {transcript || liveText ? (
+              <p className="text-slate text-sm whitespace-pre-wrap leading-relaxed">
+                {transcript}
+                {liveText && (
+                  <span className="text-slate opacity-70">
+                    {transcript ? ' ' : ''}{liveText}
+                    <span className="inline-block w-0.5 h-4 bg-slate ml-0.5 animate-pulse align-middle" />
+                  </span>
+                )}
               </p>
-            </div>
-          )}
+            ) : isRecording ? (
+              <div className="h-full flex flex-col items-center justify-center gap-3 text-center py-4">
+                <div className="flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-spicy-sweetcorn rounded-full animate-pulse"
+                      style={{
+                        height: `${10 + Math.sin(i * 1.2) * 8 + 8}px`,
+                        animationDelay: `${i * 0.12}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-slate">
+                  {language === 'fr' ? 'En écoute...' : 'Listening...'}
+                </p>
+              </div>
+            ) : (
+              <p className="text-silver text-sm italic">{t('speakNowHint')}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -457,5 +518,19 @@ function StopIcon({ className }: { className?: string }) {
     <svg className={className} fill="currentColor" viewBox="0 0 24 24">
       <rect x="6" y="6" width="12" height="12" rx="2" />
     </svg>
+  );
+}
+
+function WaveformIcon() {
+  return (
+    <div className="flex items-center gap-0.5 shrink-0">
+      {[3, 6, 9, 7, 4].map((h, i) => (
+        <div
+          key={i}
+          className="w-1 bg-spicy-sweetcorn rounded-full animate-pulse"
+          style={{ height: `${h * 2}px`, animationDelay: `${i * 0.1}s` }}
+        />
+      ))}
+    </div>
   );
 }
