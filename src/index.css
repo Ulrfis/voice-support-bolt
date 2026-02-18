@@ -5,6 +5,13 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-spicy-sweetcorn: 247 170 1;
+    --color-rockman-blue: 52 160 237;
+    --color-chunky-bee: 253 198 75;
+    --color-joust-blue: 81 173 251;
+  }
+
   body {
     font-family: 'Inter', sans-serif;
     background-color: #FFFFFF;

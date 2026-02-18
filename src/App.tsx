@@ -120,14 +120,18 @@ function AppContent() {
     <div className={`min-h-screen bg-white transition-all duration-300 ${DEBUG_MODE ? 'pr-[380px]' : ''}`}>
       {DEBUG_MODE && <DebugPanel />}
       {currentScreen !== 'backoffice' && (
-        <header className="bg-white border-b border-light-gray sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <header className="bg-white sticky top-0 z-10 shadow-sm">
+          <div className="h-0.5 bg-gradient-to-r from-rockman-blue via-spicy-sweetcorn to-chunky-bee" />
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <button
               onClick={handleBackToHome}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              className="flex items-center hover:opacity-80 transition-opacity"
             >
-              <span className="text-2xl">🎙️</span>
-              <span className="text-xl font-bold text-charcoal font-grotesk">Audiogami</span>
+              <img
+                src="/audiogami_logo-full-transparent_v2.png"
+                alt="Audiogami"
+                className="h-10 w-auto"
+              />
             </button>
 
             <button

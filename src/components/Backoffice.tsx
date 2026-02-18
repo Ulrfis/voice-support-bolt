@@ -48,18 +48,6 @@ export function Backoffice({ onClose }: BackofficeProps) {
     }
   };
 
-  const updateTicket = async (id: string, updates: Partial<Ticket>) => {
-    const { error } = await supabase
-      .from('tickets')
-      .update(updates)
-      .eq('id', id);
-
-    if (!error) {
-      loadTickets();
-      setSelectedTicket(null);
-    }
-  };
-
   const exportToCSV = () => {
     const headers = ['ID', 'Created', 'Use Case', 'Status', 'Priority', 'Category'];
     const rows = filteredTickets.map(t => [
@@ -96,44 +84,52 @@ export function Backoffice({ onClose }: BackofficeProps) {
     closed: tickets.filter(t => t.status === 'closed').length
   };
 
-  const getPriorityColor = (priority: string) => {
-    const colors = {
-      critical: 'text-red-600 bg-red-100',
-      high: 'text-orange-600 bg-orange-100',
-      medium: 'text-yellow-600 bg-yellow-100',
-      low: 'text-green-600 bg-green-100'
+  const getPriorityBadge = (priority: string) => {
+    const styles = {
+      critical: 'text-red-700 bg-red-50 border border-red-200',
+      high: 'text-spicy-sweetcorn bg-spicy-sweetcorn/10 border border-spicy-sweetcorn/30',
+      medium: 'text-rockman-blue bg-rockman-blue/10 border border-rockman-blue/20',
+      low: 'text-slate bg-off-white border border-light-gray'
     };
-    return colors[priority as keyof typeof colors] || 'text-gray-600 bg-gray-100';
+    return styles[priority as keyof typeof styles] || 'text-slate bg-off-white border border-light-gray';
   };
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      new: 'text-blue-600 bg-blue-100',
-      in_progress: 'text-purple-600 bg-purple-100',
-      waiting_customer: 'text-yellow-600 bg-yellow-100',
-      resolved: 'text-green-600 bg-green-100',
-      closed: 'text-gray-600 bg-gray-100'
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      new: 'text-rockman-blue bg-rockman-blue/10 border border-rockman-blue/20',
+      in_progress: 'text-spicy-sweetcorn bg-spicy-sweetcorn/10 border border-spicy-sweetcorn/30',
+      waiting_customer: 'text-chunky-bee bg-chunky-bee/10 border border-chunky-bee/30',
+      resolved: 'text-green-700 bg-green-50 border border-green-200',
+      closed: 'text-slate bg-off-white border border-light-gray'
     };
-    return colors[status as keyof typeof colors] || 'text-gray-600 bg-gray-100';
+    return styles[status as keyof typeof styles] || 'text-slate bg-off-white border border-light-gray';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-off-white flex items-center justify-center">
+        <div className="flex items-center gap-3 text-slate">
+          <div className="w-5 h-5 border-2 border-rockman-blue border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm">Loading...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b">
+    <div className="min-h-screen bg-off-white">
+      <div className="bg-white shadow-sm">
+        <div className="h-0.5 bg-gradient-to-r from-rockman-blue via-spicy-sweetcorn to-chunky-bee" />
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">{t('backoffice')}</h1>
+            <div className="flex items-center gap-3">
+              <img src="/audiogami_logo-full-transparent_v2.png" alt="Audiogami" className="h-8 w-auto" />
+              <div className="w-px h-6 bg-light-gray" />
+              <h1 className="text-xl font-bold text-charcoal font-grotesk">{t('backoffice')}</h1>
+            </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center gap-1.5 text-sm text-slate hover:text-charcoal transition-colors"
             >
               ← {t('back')}
             </button>
@@ -142,53 +138,53 @@ export function Backoffice({ onClose }: BackofficeProps) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-500 mb-1">Total</p>
-            <p className="text-3xl font-bold text-gray-900">{statusCounts.total}</p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-light-gray p-5">
+            <p className="text-xs text-slate mb-1 uppercase tracking-wide font-medium">Total</p>
+            <p className="text-3xl font-bold text-charcoal font-grotesk">{statusCounts.total}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-500 mb-1">{t('statusNew')}</p>
-            <p className="text-3xl font-bold text-blue-600">{statusCounts.new}</p>
+          <div className="bg-white rounded-xl shadow-sm border border-light-gray p-5">
+            <p className="text-xs text-slate mb-1 uppercase tracking-wide font-medium">{t('statusNew')}</p>
+            <p className="text-3xl font-bold text-rockman-blue font-grotesk">{statusCounts.new}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-500 mb-1">{t('statusInProgress')}</p>
-            <p className="text-3xl font-bold text-purple-600">{statusCounts.in_progress}</p>
+          <div className="bg-white rounded-xl shadow-sm border border-light-gray p-5">
+            <p className="text-xs text-slate mb-1 uppercase tracking-wide font-medium">{t('statusInProgress')}</p>
+            <p className="text-3xl font-bold text-spicy-sweetcorn font-grotesk">{statusCounts.in_progress}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-500 mb-1">{t('statusResolved')}</p>
-            <p className="text-3xl font-bold text-green-600">{statusCounts.resolved}</p>
+          <div className="bg-white rounded-xl shadow-sm border border-light-gray p-5">
+            <p className="text-xs text-slate mb-1 uppercase tracking-wide font-medium">{t('statusResolved')}</p>
+            <p className="text-3xl font-bold text-green-600 font-grotesk">{statusCounts.resolved}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-500 mb-1">{t('statusClosed')}</p>
-            <p className="text-3xl font-bold text-gray-600">{statusCounts.closed}</p>
+          <div className="bg-white rounded-xl shadow-sm border border-light-gray p-5">
+            <p className="text-xs text-slate mb-1 uppercase tracking-wide font-medium">{t('statusClosed')}</p>
+            <p className="text-3xl font-bold text-silver font-grotesk">{statusCounts.closed}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b">
+        <div className="bg-white rounded-xl shadow-sm border border-light-gray">
+          <div className="p-6 border-b border-light-gray">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">{t('allTickets')}</h2>
+              <h2 className="text-lg font-bold text-charcoal font-grotesk">{t('allTickets')}</h2>
               <button
                 onClick={exportToCSV}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                className="px-4 py-2 bg-rockman-blue text-white rounded-lg hover:bg-joust-blue text-sm font-medium transition-colors shadow-sm"
               >
                 {t('export')}
               </button>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <input
                 type="text"
                 placeholder={t('search')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-2 border border-light-gray rounded-lg text-sm focus:ring-2 focus:ring-spicy-sweetcorn focus:border-transparent outline-none"
               />
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-light-gray rounded-lg text-sm focus:ring-2 focus:ring-spicy-sweetcorn focus:border-transparent outline-none text-charcoal"
               >
                 <option value="all">{language === 'fr' ? 'Tous les statuts' : 'All statuses'}</option>
                 <option value="new">{t('statusNew')}</option>
@@ -202,52 +198,52 @@ export function Backoffice({ onClose }: BackofficeProps) {
 
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-off-white border-b border-light-gray">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('created')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Use Case</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('status')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('priority')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('category')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('actions')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate uppercase tracking-wide">ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate uppercase tracking-wide">{t('created')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate uppercase tracking-wide">Use Case</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate uppercase tracking-wide">{t('status')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate uppercase tracking-wide">{t('priority')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate uppercase tracking-wide">{t('category')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate uppercase tracking-wide">{t('actions')}</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-light-gray">
                 {filteredTickets.map(ticket => (
-                  <tr key={ticket.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-mono text-gray-900">
+                  <tr key={ticket.id} className="hover:bg-off-white transition-colors">
+                    <td className="px-6 py-4 text-sm font-mono text-charcoal">
                       {ticket.id.slice(0, 8)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-4 text-sm text-slate">
                       {new Date(ticket.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm text-charcoal">
                       {ticket.use_case}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(ticket.status)}`}>
                         {ticket.status}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(ticket.priority)}`}>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getPriorityBadge(ticket.priority)}`}>
                         {ticket.priority}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-4 text-sm text-slate">
                       {ticket.category || '-'}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <button
                         onClick={() => setSelectedTicket(ticket)}
-                        className="text-blue-600 hover:text-blue-800 mr-3"
+                        className="text-rockman-blue hover:text-joust-blue font-medium mr-4 transition-colors"
                       >
                         {t('view')}
                       </button>
                       <button
                         onClick={() => deleteTicket(ticket.id)}
-                        className="text-red-600 hover:text-red-800"
+                        className="text-red-500 hover:text-red-700 transition-colors"
                       >
                         {t('delete')}
                       </button>
@@ -256,20 +252,26 @@ export function Backoffice({ onClose }: BackofficeProps) {
                 ))}
               </tbody>
             </table>
+            {filteredTickets.length === 0 && (
+              <div className="py-12 text-center text-slate text-sm">
+                {language === 'fr' ? 'Aucun ticket trouvé' : 'No tickets found'}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {selectedTicket && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-charcoal bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">{t('ticketDetails')}</h3>
+            <div className="h-0.5 bg-gradient-to-r from-rockman-blue via-spicy-sweetcorn to-chunky-bee rounded-t-xl" />
+            <div className="p-6 border-b border-light-gray flex items-center justify-between">
+              <h3 className="text-lg font-bold text-charcoal font-grotesk">{t('ticketDetails')}</h3>
               <button
                 onClick={() => setSelectedTicket(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-light-gray text-slate hover:text-charcoal transition-colors"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -278,20 +280,20 @@ export function Backoffice({ onClose }: BackofficeProps) {
             <div className="p-6">
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ID</label>
-                  <p className="text-gray-900 font-mono">{selectedTicket.id}</p>
+                  <label className="block text-xs font-medium text-slate mb-1 uppercase tracking-wide">ID</label>
+                  <p className="text-charcoal font-mono text-sm">{selectedTicket.id}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('created')}</label>
-                  <p className="text-gray-900">{new Date(selectedTicket.created_at).toLocaleString()}</p>
+                  <label className="block text-xs font-medium text-slate mb-1 uppercase tracking-wide">{t('created')}</label>
+                  <p className="text-charcoal text-sm">{new Date(selectedTicket.created_at).toLocaleString()}</p>
                 </div>
               </div>
 
               {selectedTicket.raw_transcript && (
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('transcription')}</label>
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <p className="text-gray-700 whitespace-pre-wrap">{selectedTicket.raw_transcript}</p>
+                  <label className="block text-xs font-medium text-slate mb-2 uppercase tracking-wide">{t('transcription')}</label>
+                  <div className="bg-off-white rounded-lg p-4 border border-light-gray">
+                    <p className="text-charcoal text-sm whitespace-pre-wrap leading-relaxed">{selectedTicket.raw_transcript}</p>
                   </div>
                 </div>
               )}
@@ -302,10 +304,10 @@ export function Backoffice({ onClose }: BackofficeProps) {
 
                   return (
                     <div key={key} className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-slate mb-1 uppercase tracking-wide">
                         {key.replace(/_/g, ' ')}
                       </label>
-                      <p className="text-gray-900">
+                      <p className="text-charcoal text-sm">
                         {Array.isArray(value) ? value.join(', ') : String(value)}
                       </p>
                     </div>
@@ -314,10 +316,10 @@ export function Backoffice({ onClose }: BackofficeProps) {
               </div>
             </div>
 
-            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+            <div className="p-6 border-t border-light-gray bg-off-white rounded-b-xl flex justify-end gap-3">
               <button
                 onClick={() => setSelectedTicket(null)}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-charcoal bg-white border border-light-gray rounded-lg hover:bg-light-gray text-sm font-medium transition-colors"
               >
                 {t('close')}
               </button>
