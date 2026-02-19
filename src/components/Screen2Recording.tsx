@@ -55,7 +55,6 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasResult, setHasResult] = useState(false);
   const [passCount, setPassCount] = useState(initialData ? 1 : 0);
-  const [progress, setProgress] = useState(0);
   const [transcript, setTranscript] = useState('');
   const [liveText, setLiveText] = useState('');
   const [structData, setStructData] = useState<Partial<Ticket>>(initialData || {});
@@ -95,7 +94,6 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
     setIsProcessing(false);
     setHasResult(true);
     setPassCount(prev => prev + 1);
-    setProgress(100);
     console.log('[Gamilab] hasResult = true, ready for HITL');
   };
 
@@ -189,23 +187,12 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
     };
   }, [useCaseId]);
 
-  useEffect(() => {
-    if (!isRecording && !isProcessing) return;
-
-    const target = isRecording ? 60 : 92;
-    const interval = setInterval(() => {
-      setProgress(prev => (prev < target ? prev + 0.6 : target));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isRecording, isProcessing]);
 
   const handleStartRecording = async () => {
     if (!gamiRef.current) return;
     setHasResult(false);
     finalizingRef.current = false;
     isStoppingRef.current = false;
-    setProgress(0);
     try {
       if (passCount === 0) {
         console.log('[Gamilab] start_recording()');
@@ -260,7 +247,9 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
   });
 
   const answeredCount = questionFields.filter(f => !!structData[f as keyof Ticket]).length;
-  const progressColor = hasResult ? 'bg-spicy-sweetcorn' : 'bg-chunky-bee';
+  const totalQuestions = questionFields.length;
+  const progress = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
+  const progressColor = progress === 100 ? 'bg-spicy-sweetcorn' : 'bg-chunky-bee';
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
