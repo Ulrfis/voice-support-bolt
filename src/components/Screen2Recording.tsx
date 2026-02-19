@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
-import { waitForGami, connectGami, isGamiConnected, PORTAL_IDS, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
+import { loadAndInitSDK, connectGami, PORTAL_IDS, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
 import type { UseCaseId, Ticket } from '../types';
 
 interface Screen2RecordingProps {
@@ -177,13 +177,11 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       setInitPhase('loading_sdk');
       setInitError('');
 
-      const gami = await waitForGami();
+      const gami = await loadAndInitSDK();
       if (abort.signal.aborted || !mountedRef.current) return;
 
       setInitPhase('connecting');
-      if (!isGamiConnected()) {
-        await connectGami('gamilab.ch');
-      }
+      await connectGami('gamilab.ch');
       if (abort.signal.aborted || !mountedRef.current) return;
 
       const portalId = PORTAL_IDS[useCaseId];

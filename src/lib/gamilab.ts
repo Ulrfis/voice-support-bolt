@@ -14,26 +14,50 @@ export interface GamiSDK {
   off: (ref: symbol) => void;
 }
 
+const DEFAULT_SDK_URL = 'https://gamilab.ch/js/sdk.js';
+const SDK_SCRIPT_ID = 'gamilab-sdk-script';
+
 let _instance: GamiSDK | null = null;
 let _connected = false;
-const _pendingCallbacks: Array<(gami: GamiSDK) => void> = [];
+let _initListener: ((evt: Event) => void) | null = null;
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('gami:init', (evt: Event) => {
-    const e = evt as CustomEvent<{ Gami: () => GamiSDK }>;
-    _instance = e.detail.Gami();
-    _connected = false;
-    _pendingCallbacks.splice(0).forEach(cb => cb(_instance!));
-  });
+function getSDKUrl(): string {
+  if (typeof window === 'undefined') return DEFAULT_SDK_URL;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('sdk') || DEFAULT_SDK_URL;
 }
 
-export function waitForGami(): Promise<GamiSDK> {
-  return new Promise((resolve) => {
-    if (_instance) {
-      resolve(_instance);
-      return;
+export function loadAndInitSDK(): Promise<GamiSDK> {
+  return new Promise((resolve, reject) => {
+    if (_initListener) {
+      window.removeEventListener('gami:init', _initListener);
+      _initListener = null;
     }
-    _pendingCallbacks.push((gami: GamiSDK) => resolve(gami));
+
+    _instance = null;
+    _connected = false;
+
+    const oldScript = document.getElementById(SDK_SCRIPT_ID);
+    if (oldScript) {
+      oldScript.remove();
+    }
+
+    _initListener = (evt: Event) => {
+      const e = evt as CustomEvent<{ Gami: () => GamiSDK }>;
+      _instance = e.detail.Gami();
+      _connected = false;
+      resolve(_instance);
+    };
+    window.addEventListener('gami:init', _initListener, { once: true });
+
+    const script = document.createElement('script');
+    script.id = SDK_SCRIPT_ID;
+    script.src = getSDKUrl();
+    script.defer = true;
+    script.onerror = () => {
+      reject(new Error('Failed to load Gamilab SDK'));
+    };
+    document.body.appendChild(script);
   });
 }
 
@@ -42,10 +66,6 @@ export async function connectGami(host: string): Promise<void> {
   if (_connected) return;
   await _instance.connect(host);
   _connected = true;
-}
-
-export function isGamiConnected(): boolean {
-  return _connected && _instance !== null;
 }
 
 export function getGamiInstance(): GamiSDK | null {
