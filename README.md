@@ -2,7 +2,7 @@
 
 > Transformez la voix de vos clients en tickets structurés, en temps réel.
 
-**Version** : 0.2.3 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
+**Version** : 0.2.6 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
 
 ---
 
@@ -124,6 +124,20 @@ Le push Notion est architecturé mais nécessite une **Supabase Edge Function** 
 npm install
 npm run dev
 ```
+
+---
+
+## Compatibilité responsive
+
+L'application est entièrement optimisée pour desktop et smartphone :
+
+| Écran | Mobile | Tablette | Desktop |
+|-------|--------|----------|---------|
+| Accueil | 1 col + étapes empilées | 2 cols | 2 cols |
+| Enregistrement | Vue unique empilée | Vue unique empilée | Côte à côte (3+2 col) |
+| Revue HITL | Champs en colonne | 3 cols selects | 3 cols selects |
+| Confirmation | Stats 2×2 | Stats 4 cols | Stats 4 cols |
+| Backoffice | Sheet modal + filtres empilés | Tableau scrollable | Vue complète |
 
 ---
 

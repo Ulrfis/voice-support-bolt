@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-19 (v0.2.5)
+> **Last Updated**: 2026-02-19 (v0.2.6)
 
 ---
 
@@ -197,6 +197,35 @@
 **Resolution**: Supprimer tout appel à `disconnect()`. Le socket est établi une fois, les canaux sont recréés à chaque session via `use_portal()` + `create_thread()`.
 
 **Time**: ~30 min (dont ~20 min d'analyse du SDK source + hypothèses)
+
+---
+
+### 2026-02-19 — Responsive Mobile Complet 🔷
+
+**Intent**: Assurer une compatibilité 100% mobile sur tous les écrans — l'app devait être pleinement utilisable sur smartphone sans aucune mise en page cassée.
+
+**Prompt(s)**:
+> "Assurer compatibilité 100% maximale pour responsive. Vérifier que l'UI et l'UX fonctionnent bien sur desktop ET smartphone"
+
+**Tool**: Claude (Sonnet 4.6)
+
+**Outcome**:
+- Audit complet de tous les composants — identification de 10 problèmes responsive classés par sévérité
+- `Screen1Home` : indicateur d'étapes empilé verticalement sur mobile, cartes en 1 colonne
+- `Screen2Recording` : grille 5 colonnes remplacée par `grid-cols-1 lg:grid-cols-5` — vue empilée sur mobile/tablette
+- `Screen3HITL` : selects statut/priorité/catégorie en `sm:grid-cols-3`, boutons d'action en colonne sur mobile
+- `Screen4Confirmation` : métadonnées du ticket en `grid-cols-2 sm:grid-cols-4`
+- `Backoffice` : barre de filtres empilée, modal en bottom sheet sur mobile, breakpoint intermédiaire sur les stats, grille de détails responsive
+- `App.tsx` : panel debug limité au grand écran (`lg:pr-[380px]`)
+- Build propre — aucune erreur TypeScript ni CSS
+
+**Surprise**: Le panel de debug en position fixe avec `pr-[380px]` appliqué sans breakpoint poussait tout le contenu hors écran sur mobile — silencieusement, sans erreur.
+
+**Friction**: Patterns Tailwind inconsistants entre les composants — certains utilisaient déjà `md:` correctement, d'autres avaient des grilles hardcodées sans aucun breakpoint.
+
+**Resolution**: Audit systématique composant par composant, corrections ciblées sans toucher à la logique métier.
+
+**Time**: ~15 min
 
 ---
 

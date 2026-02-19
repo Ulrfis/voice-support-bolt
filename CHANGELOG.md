@@ -6,6 +6,19 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.2.6] - 2026-02-19
+
+### Corrigé
+- **Responsive mobile complet** sur tous les écrans de l'application
+- `Screen1Home` : indicateur d'étapes (1-2-3) s'empile verticalement sur mobile, les cartes cas d'usage passent en 1 colonne sur petit écran
+- `Screen2Recording` : grille 5 colonnes (questions + transcription) remplacée par une mise en page empilée sur mobile/tablette (`lg:grid-cols-5` uniquement sur grand écran)
+- `Screen3HITL` : les 3 selects statut/priorité/catégorie passent en colonne unique sur mobile (`sm:grid-cols-3`), boutons d'action empilés sur mobile
+- `Screen4Confirmation` : métadonnées du ticket en grille 2×2 sur mobile au lieu de 4 colonnes fixes
+- `Backoffice` : barre de recherche+filtre empilée sur mobile, modal en sheet depuis le bas sur mobile (rounded-t-xl), grille des stats avec breakpoint intermédiaire (`sm:grid-cols-3`), grille de détails du ticket responsive
+- `App.tsx` : panel debug (`pr-[380px]`) activé uniquement sur grand écran (`lg:pr-[380px]`) pour ne pas écraser le contenu mobile
+
+---
+
 ## [0.2.5] - 2026-02-19
 
 ### Corrigé
