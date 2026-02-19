@@ -138,7 +138,7 @@ export function Backoffice({ onClose }: BackofficeProps) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-xl shadow-sm border border-light-gray p-5">
             <p className="text-xs text-slate mb-1 uppercase tracking-wide font-medium">Total</p>
             <p className="text-3xl font-bold text-charcoal font-grotesk">{statusCounts.total}</p>
@@ -163,7 +163,7 @@ export function Backoffice({ onClose }: BackofficeProps) {
 
         <div className="bg-white rounded-xl shadow-sm border border-light-gray">
           <div className="p-6 border-b border-light-gray">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <h2 className="text-lg font-bold text-charcoal font-grotesk">{t('allTickets')}</h2>
               <button
                 onClick={exportToCSV}
@@ -173,7 +173,7 @@ export function Backoffice({ onClose }: BackofficeProps) {
               </button>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
                 placeholder={t('search')}
@@ -184,7 +184,7 @@ export function Backoffice({ onClose }: BackofficeProps) {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-light-gray rounded-lg text-sm focus:ring-2 focus:ring-spicy-sweetcorn focus:border-transparent outline-none text-charcoal"
+                className="px-4 py-2 border border-light-gray rounded-lg text-sm focus:ring-2 focus:ring-spicy-sweetcorn focus:border-transparent outline-none text-charcoal sm:w-auto w-full"
               >
                 <option value="all">{language === 'fr' ? 'Tous les statuts' : 'All statuses'}</option>
                 <option value="new">{t('statusNew')}</option>
@@ -262,8 +262,8 @@ export function Backoffice({ onClose }: BackofficeProps) {
       </div>
 
       {selectedTicket && (
-        <div className="fixed inset-0 bg-charcoal bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-charcoal bg-opacity-50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="h-0.5 bg-gradient-to-r from-rockman-blue via-spicy-sweetcorn to-chunky-bee rounded-t-xl" />
             <div className="p-6 border-b border-light-gray flex items-center justify-between">
               <h3 className="text-lg font-bold text-charcoal font-grotesk">{t('ticketDetails')}</h3>
@@ -278,10 +278,10 @@ export function Backoffice({ onClose }: BackofficeProps) {
             </div>
 
             <div className="p-6">
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
                   <label className="block text-xs font-medium text-slate mb-1 uppercase tracking-wide">ID</label>
-                  <p className="text-charcoal font-mono text-sm">{selectedTicket.id}</p>
+                  <p className="text-charcoal font-mono text-sm break-all">{selectedTicket.id}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate mb-1 uppercase tracking-wide">{t('created')}</label>

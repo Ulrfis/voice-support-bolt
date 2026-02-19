@@ -190,7 +190,7 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
           <p className="text-chunky-bee text-xs font-medium mb-3">{t('someFieldsMissing')}</p>
         )}
 
-        <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <div>
             <label className="block mb-1">
               <span className="text-sm font-medium text-charcoal">{t('status')}</span>
@@ -282,10 +282,10 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
             </p>
           </div>
         )}
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 px-4 py-2 bg-off-white border border-light-gray text-charcoal rounded hover:bg-light-gray font-medium transition-colors text-sm shrink-0"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-off-white border border-light-gray text-charcoal rounded hover:bg-light-gray font-medium transition-colors text-sm sm:shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />

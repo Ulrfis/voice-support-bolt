@@ -51,8 +51,8 @@ export function Screen4Confirmation({ ticket, onViewAllTickets }: Screen4Confirm
   return (
     <div className="max-w-5xl mx-auto px-4 py-4">
       <div className="bg-off-white border border-light-gray rounded-lg shadow-sm p-4 mb-3">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 bg-spicy-sweetcorn bg-opacity-20 rounded-full flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 text-spicy-sweetcorn" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -70,7 +70,7 @@ export function Screen4Confirmation({ ticket, onViewAllTickets }: Screen4Confirm
           </span>
         </div>
 
-        <div className="grid grid-cols-4 gap-3 text-xs border-t border-light-gray pt-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs border-t border-light-gray pt-3">
           <div>
             <p className="text-slate">{t('status')}</p>
             <p className="font-medium text-charcoal">

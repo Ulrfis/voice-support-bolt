@@ -117,7 +117,7 @@ function AppContent() {
   };
 
   return (
-    <div className={`min-h-screen bg-white transition-all duration-300 ${DEBUG_MODE ? 'pr-[380px]' : ''}`}>
+    <div className={`min-h-screen bg-white transition-all duration-300 ${DEBUG_MODE ? 'lg:pr-[380px]' : ''}`}>
       {DEBUG_MODE && <DebugPanel />}
       {currentScreen !== 'backoffice' && (
         <header className="bg-white sticky top-0 z-10 shadow-sm">

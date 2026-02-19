@@ -281,19 +281,19 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-slate hover:text-charcoal transition-colors text-sm"
+            className="flex items-center gap-2 text-slate hover:text-charcoal transition-colors text-sm shrink-0"
           >
             ← {t('back')}
           </button>
-          <h2 className="text-xl font-bold text-charcoal font-grotesk">
+          <h2 className="text-base sm:text-xl font-bold text-charcoal font-grotesk truncate">
             {useCase.icon} {useCase.name[language]}
           </h2>
         </div>
-        <span className="text-xs text-slate bg-off-white border border-light-gray rounded-full px-3 py-1">
+        <span className="text-xs text-slate bg-off-white border border-light-gray rounded-full px-3 py-1 shrink-0">
           {useCase.context[language]}
         </span>
       </div>
@@ -311,8 +311,8 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-5">
-        <div className="col-span-3 flex flex-col gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        <div className="lg:col-span-3 flex flex-col gap-4">
           <div className="bg-off-white border border-light-gray rounded-lg shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-charcoal text-sm font-grotesk">
@@ -511,11 +511,11 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
           </div>
         </div>
 
-        <div className="col-span-2 bg-off-white border border-light-gray rounded-lg shadow-sm p-5 flex flex-col">
+        <div className="lg:col-span-2 bg-off-white border border-light-gray rounded-lg shadow-sm p-5 flex flex-col">
           <h3 className="font-semibold text-charcoal mb-3 text-sm font-grotesk">
             {t('liveTranscription')}
           </h3>
-          <div className="bg-white rounded-lg p-4 border border-light-gray flex-1 overflow-y-auto min-h-48">
+          <div className="bg-white rounded-lg p-4 border border-light-gray flex-1 overflow-y-auto min-h-36 lg:min-h-48">
             {transcript || liveText ? (
               <p className="text-slate text-sm whitespace-pre-wrap leading-relaxed">
                 {transcript}

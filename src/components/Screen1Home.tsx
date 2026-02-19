@@ -19,19 +19,21 @@ export function Screen1Home({ onSelectUseCase }: Screen1HomeProps) {
           {t('appSubtitle')}
         </p>
 
-        <div className="inline-flex items-center gap-6 bg-off-white border border-light-gray px-8 py-4 rounded-xl shadow-sm">
+        <div className="inline-flex flex-col sm:flex-row items-center gap-3 sm:gap-6 bg-off-white border border-light-gray px-6 sm:px-8 py-4 rounded-xl shadow-sm w-full sm:w-auto max-w-sm sm:max-w-none mx-auto">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-rockman-blue flex items-center justify-center text-white font-bold text-sm shadow-sm">1</div>
+            <div className="w-8 h-8 rounded-full bg-rockman-blue flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">1</div>
             <span className="text-sm font-medium text-charcoal">{t('step1')}</span>
           </div>
-          <div className="w-px h-5 bg-light-gray" />
+          <div className="hidden sm:block w-px h-5 bg-light-gray" />
+          <div className="block sm:hidden w-5 h-px bg-light-gray" />
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-spicy-sweetcorn flex items-center justify-center text-white font-bold text-sm shadow-sm">2</div>
+            <div className="w-8 h-8 rounded-full bg-spicy-sweetcorn flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">2</div>
             <span className="text-sm font-medium text-charcoal">{t('step2')}</span>
           </div>
-          <div className="w-px h-5 bg-light-gray" />
+          <div className="hidden sm:block w-px h-5 bg-light-gray" />
+          <div className="block sm:hidden w-5 h-px bg-light-gray" />
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-rockman-blue flex items-center justify-center text-white font-bold text-sm shadow-sm">3</div>
+            <div className="w-8 h-8 rounded-full bg-rockman-blue flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">3</div>
             <span className="text-sm font-medium text-charcoal">{t('step3')}</span>
           </div>
         </div>
@@ -41,12 +43,12 @@ export function Screen1Home({ onSelectUseCase }: Screen1HomeProps) {
         {t('selectUseCase')}
       </h2>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         {useCases.map((useCase) => (
           <button
             key={useCase.id}
             onClick={() => onSelectUseCase(useCase.id)}
-            className="group flex flex-col items-center text-center bg-white border-2 border-light-gray rounded-2xl px-6 py-10 hover:border-rockman-blue hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-rockman-blue focus:ring-offset-2"
+            className="group flex flex-col items-center text-center bg-white border-2 border-light-gray rounded-2xl px-4 sm:px-6 py-8 sm:py-10 hover:border-rockman-blue hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-rockman-blue focus:ring-offset-2 w-full"
           >
             <div className="text-5xl mb-5 transition-transform duration-200 group-hover:scale-110">
               {useCase.icon}
