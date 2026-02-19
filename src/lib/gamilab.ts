@@ -15,12 +15,14 @@ export interface GamiSDK {
 }
 
 let _instance: GamiSDK | null = null;
+let _connected = false;
 const _pendingCallbacks: Array<(gami: GamiSDK) => void> = [];
 
 if (typeof window !== 'undefined') {
   window.addEventListener('gami:init', (evt: Event) => {
     const e = evt as CustomEvent<{ Gami: () => GamiSDK }>;
     _instance = e.detail.Gami();
+    _connected = false;
     _pendingCallbacks.splice(0).forEach(cb => cb(_instance!));
   });
 }
@@ -33,6 +35,17 @@ export function waitForGami(): Promise<GamiSDK> {
       _pendingCallbacks.push(resolve);
     }
   });
+}
+
+export async function connectGami(host: string): Promise<void> {
+  if (!_instance) return;
+  if (_connected) return;
+  await _instance.connect(host);
+  _connected = true;
+}
+
+export function resetGamiConnection(): void {
+  _connected = false;
 }
 
 export const PORTAL_IDS: Record<UseCaseId, string> = {
