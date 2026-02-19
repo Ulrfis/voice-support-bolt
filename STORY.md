@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-19 (v0.3.1)
+> **Last Updated**: 2026-02-19 (v0.3.2)
 
 ---
 
@@ -261,6 +261,27 @@
 
 ---
 
+### 2026-02-19 — Assertion loadAndInitSDK (Fail-Fast Singleton) 🔹
+
+**Intent**: Appliquer le principe d'assertion : si `loadAndInitSDK()` est appele deux fois, c'est un bug dans le code appelant -- il faut crash, pas tenter silencieusement de retourner la promesse cachee ou de reload le SDK.
+
+**Prompt(s)**:
+> "si loadAndInitSDK est call 2x, juste throw, pas unload et reload la sdk, ca marchera pas. il y a une regle en programmation, ca s'appelle l'assertion. quand un truc marche pas il faut crash, pas essayer de reparer"
+
+**Tool**: Claude (Opus 4.6)
+
+**Outcome**:
+- `_sdkPromise` remplace par un simple booleen `_loaded` -- le guard ne retourne plus la promesse, il throw
+- `connectGami()` prend maintenant `gami: GamiSDK` en parametre au lieu de rappeler `loadAndInitSDK()` en interne -- le couplage implicite avec le singleton est supprime
+- `Screen2Recording` passe l'instance retournee par `loadAndInitSDK()` directement a `connectGami(host, gami)`
+- Build propre
+
+**Surprise**: Aucune -- changement chirurgical. Le pattern precedent (retourner `_sdkPromise` au 2e appel) etait silencieusement permissif et masquait potentiellement des bugs de double-init.
+
+**Time**: ~3 min
+
+---
+
 ### 2026-02-19 — Nettoyage Conformité SDK Gamilab 🔹
 
 **Intent**: Supprimer toutes les surcouches applicatives qui reproduisaient ce que le SDK Gamilab gère déjà nativement, sur la base d'une lecture attentive de la documentation SDK.
@@ -348,6 +369,7 @@
 - 2026-02-19: Quand un SDK tiers peut silencieusement echouer (pas de timeout, pas d'erreur visible), toujours ajouter ses propres timeouts et retries. Une Promise qui ne resolve jamais est pire qu'une erreur explicite.
 - 2026-02-19: Pour un aller-retour entre deux ecrans qui enrichissent les memes donnees, ne pas essayer de reutiliser la session SDK -- creer une session fraiche et fusionner les resultats cote client. Le merge applicatif est plus previsible et debuggable qu'un resume d'etat SDK interne.
 - 2026-02-19: Lire la doc SDK avant d'ajouter des gardes applicatives. Si le SDK gère le retry, les permissions micro, l'historique complet et les données complètes — ne pas le réimplémenter. Une surcouche qui double le SDK crée des conflits silencieux (ex : transcript dupliqué) et du code mort à maintenir.
+- 2026-02-19: Quand une fonction singleton est appelee deux fois, c'est un bug dans le code appelant. La bonne reponse est `throw`, pas retourner silencieusement un cache. Le pattern d'assertion (fail-fast) expose les bugs a la source au lieu de les masquer derriere une tolerance silencieuse qui complique le debug.
 
 ---
 

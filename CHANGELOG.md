@@ -6,6 +6,14 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.3.2] - 2026-02-19
+
+### Corrigé
+- **Assertion `loadAndInitSDK()`** : un deuxième appel `throw` immédiatement au lieu de retourner silencieusement la promesse cachée — si le code appelant charge le SDK deux fois, c'est un bug, il faut crash, pas tenter de réparer
+- `connectGami()` : prend maintenant l'instance `GamiSDK` en paramètre au lieu de la re-fetch en interne — supprime le couplage implicite avec le singleton
+
+---
+
 ## [0.3.1] - 2026-02-19
 
 ### Corrigé
