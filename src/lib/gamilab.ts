@@ -17,7 +17,7 @@ export interface GamiSDK {
 const DEFAULT_SDK_URL = 'https://gamilab.ch/js/sdk.js';
 const SDK_SCRIPT_ID = 'gamilab-sdk-script';
 
-let _loaded = false;
+let _sdkPromise: Promise<GamiSDK> | null = null;
 
 function getSDKUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_SDK_URL;
@@ -26,10 +26,9 @@ function getSDKUrl(): string {
 }
 
 export function loadAndInitSDK(): Promise<GamiSDK> {
-  if (_loaded) throw new Error('loadAndInitSDK() called twice — SDK is a singleton, load it once');
-  _loaded = true;
+  if (_sdkPromise) return _sdkPromise;
 
-  return new Promise<GamiSDK>((resolve, reject) => {
+  _sdkPromise = new Promise<GamiSDK>((resolve, reject) => {
     window.addEventListener('gami:init', (evt: Event) => {
       const e = evt as CustomEvent<{ Gami: () => GamiSDK }>;
       resolve(e.detail.Gami());
@@ -39,9 +38,14 @@ export function loadAndInitSDK(): Promise<GamiSDK> {
     script.id = SDK_SCRIPT_ID;
     script.src = getSDKUrl();
     script.defer = true;
-    script.onerror = () => reject(new Error('Failed to load Gamilab SDK'));
+    script.onerror = () => {
+      _sdkPromise = null;
+      reject(new Error('Failed to load Gamilab SDK'));
+    };
     document.body.appendChild(script);
   });
+
+  return _sdkPromise;
 }
 
 export async function connectGami(host: string, gami: GamiSDK): Promise<void> {

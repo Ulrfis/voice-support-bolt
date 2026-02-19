@@ -114,16 +114,13 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
     setPassCount(prev => prev + 1);
   }, []);
 
-  const cleanupEvents = useCallback(() => {
-    const gami = gamiRef.current;
-    if (gami && eventRefsRef.current.length > 0) {
-      eventRefsRef.current.forEach(ref => gami.off(ref));
+  const registerEvents = useCallback((gami: GamiSDK) => {
+    const oldGami = gamiRef.current;
+    if (oldGami && eventRefsRef.current.length > 0) {
+      eventRefsRef.current.forEach(ref => oldGami.off(ref));
       eventRefsRef.current = [];
     }
-  }, []);
 
-  const registerEvents = useCallback((gami: GamiSDK) => {
-    cleanupEvents();
     const refs: symbol[] = [];
 
     refs.push(gami.on('audio:recording', (state: unknown) => {
@@ -164,9 +161,12 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
     }));
 
     eventRefsRef.current = refs;
-  }, [cleanupEvents, finalizeExtraction]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const initSession = useCallback(async () => {
+  const initSessionRef = useRef<(() => Promise<void>) | null>(null);
+
+  initSessionRef.current = useCallback(async () => {
     if (initAbortRef.current) {
       initAbortRef.current.abort();
     }
@@ -209,16 +209,21 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
 
   useEffect(() => {
     mountedRef.current = true;
-    initSession();
+    initSessionRef.current?.();
 
     return () => {
       mountedRef.current = false;
       if (initAbortRef.current) initAbortRef.current.abort();
       if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      cleanupEvents();
+      const gami = gamiRef.current;
+      if (gami && eventRefsRef.current.length > 0) {
+        eventRefsRef.current.forEach(ref => gami.off(ref));
+        eventRefsRef.current = [];
+      }
     };
-  }, [useCaseId, initSession, cleanupEvents]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useCaseId]);
 
   const handleStartRecording = async () => {
     if (!gamiRef.current) return;
@@ -262,7 +267,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   const handleRetry = () => {
     setInitPhase('idle');
     setInitError('');
-    initSession();
+    initSessionRef.current?.();
   };
 
   const handleContinue = () => {
