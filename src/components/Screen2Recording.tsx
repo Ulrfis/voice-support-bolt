@@ -58,6 +58,8 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
   const [transcript, setTranscript] = useState('');
   const [liveText, setLiveText] = useState('');
   const [structData, setStructData] = useState<Partial<Ticket>>(initialData || {});
+  const [displayedProgress, setDisplayedProgress] = useState(0);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const gamiRef = useRef<GamiSDK | null>(null);
   const eventRefsRef = useRef<symbol[]>([]);
@@ -180,6 +182,7 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
     return () => {
       mounted = false;
       if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       if (gami) {
         eventRefsRef.current.forEach(ref => gami!.off(ref));
         eventRefsRef.current = [];
@@ -248,8 +251,33 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
 
   const answeredCount = questionFields.filter(f => !!structData[f as keyof Ticket]).length;
   const totalQuestions = questionFields.length;
-  const progress = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
-  const progressColor = progress === 100 ? 'bg-spicy-sweetcorn' : 'bg-chunky-bee';
+  const targetProgress = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
+
+  useEffect(() => {
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    if (targetProgress <= displayedProgress) {
+      setDisplayedProgress(targetProgress);
+      return;
+    }
+    const step = Math.max(1, Math.round((targetProgress - displayedProgress) / 30));
+    progressIntervalRef.current = setInterval(() => {
+      setDisplayedProgress(prev => {
+        const next = prev + step;
+        if (next >= targetProgress) {
+          clearInterval(progressIntervalRef.current!);
+          progressIntervalRef.current = null;
+          return targetProgress;
+        }
+        return next;
+      });
+    }, 50);
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, [targetProgress]);
+
+  const progress = displayedProgress;
+  const progressColor = targetProgress === 100 ? 'bg-spicy-sweetcorn' : 'bg-chunky-bee';
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
