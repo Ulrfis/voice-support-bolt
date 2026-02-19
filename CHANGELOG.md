@@ -6,6 +6,18 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.3.1] - 2026-02-19
+
+### Corrigé
+- **Conformité SDK Gamilab** : suppression de toutes les surcouches redondantes avec ce que le SDK gère nativement
+- `waitForGami()` : timeout 10s supprimé — le SDK émet `gami:init` quand il est prêt, s'il ne charge pas c'est un problème réseau et la session ne fonctionnerait de toute façon pas
+- `Screen2Recording` : retry automatique avec backoff exponentiel supprimé — le SDK gère les retries en interne
+- `Screen2Recording` : détection manuelle de la permission microphone supprimée — `start_recording()` gère les permissions navigateur nativement selon la doc SDK
+- `Screen2Recording` : accumulation manuelle des transcripts supprimée — `thread:text_history` fournit l'historique complet à chaque événement (plus besoin de concaténer avec le transcript précédent)
+- `Screen2Recording` : merge structurel manuel supprimé — `thread:struct_current` fournit les données structurées complètes à chaque événement (plus besoin de `{ ...prev, ...mapped }`)
+
+---
+
 ## [0.3.0] - 2026-02-19
 
 ### Ajouté

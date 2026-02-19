@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-19 (v0.3.0)
+> **Last Updated**: 2026-02-19 (v0.3.1)
 
 ---
 
@@ -261,6 +261,33 @@
 
 ---
 
+### 2026-02-19 — Nettoyage Conformité SDK Gamilab 🔹
+
+**Intent**: Supprimer toutes les surcouches applicatives qui reproduisaient ce que le SDK Gamilab gère déjà nativement, sur la base d'une lecture attentive de la documentation SDK.
+
+**Prompt(s)**:
+> "Le retry est déjà dans la SDK, il faut pas mettre. Détection permission micro aussi dans la SDK il faut pas mettre. Cumul des transcripts non plus, la SDK le fait tout seul. Le merge structurel aussi la SDK fait. Timeout SDK -> il faut pas ça, il y a un event quand elle est chargée, si elle charge pas c'est que le réseau est merdique, donc dans ce cas elle marchera de toute façon pas."
+
+**Tool**: Claude (Sonnet 4.6)
+
+**Outcome**:
+- `waitForGami()` : timeout 10s supprimé — attend `gami:init` sans limite, le SDK ne chargera pas si le réseau est down de toute façon
+- Retry avec backoff exponentiel supprimé de `initSession()` — le SDK gère les retries en interne
+- Détection manuelle de la permission micro supprimée de `handleStartRecording()` — `start_recording()` gère ça nativement
+- `thread:text_history` : accumulation manuelle (`prev + ' ' + newText`) remplacée par un simple `setTranscript(text)` — le SDK livre l'historique complet
+- `thread:struct_current` : merge manuel (`{ ...prev, ...mapped }`) remplacé par `setStructData(mapped)` — le SDK livre les données complètes
+- Build propre, zéro erreur TypeScript
+
+**Surprise**: La v0.3.0 avait réimplémenté plusieurs comportements en doublon du SDK, parfois en contradiction avec lui. En particulier l'accumulation des transcripts : le merge applicatif ajoutait du texte doublon lors d'une deuxième session dans un même thread.
+
+**Friction**: Les comportements SDK n'étaient pas documentés de façon explicite dans les entrées précédentes de STORY — certaines surcouches avaient été ajoutées par précaution ("au cas où le SDK ne ferait pas X"), sans vérifier la doc.
+
+**Resolution**: Lecture directe de la doc SDK (`SDK_doc_Gamilab.md`) et application stricte : si le SDK le fait, on ne le refait pas côté app.
+
+**Time**: ~10 min
+
+---
+
 ### 2026-02-18 — Documentation & Changelog 🔹
 
 **Intent**: Documenter l'historique complet du projet dans CHANGELOG, README et STORY
@@ -320,6 +347,7 @@
 - 2026-02-19: Un log `thread:extraction_status → done` qui arrive immédiatement après `create_thread()` est un signal fort que le SDK opère sur un thread précédent (état corrompu), pas sur un thread frais. Ce pattern anormal aurait dû être identifié plus tôt.
 - 2026-02-19: Quand un SDK tiers peut silencieusement echouer (pas de timeout, pas d'erreur visible), toujours ajouter ses propres timeouts et retries. Une Promise qui ne resolve jamais est pire qu'une erreur explicite.
 - 2026-02-19: Pour un aller-retour entre deux ecrans qui enrichissent les memes donnees, ne pas essayer de reutiliser la session SDK -- creer une session fraiche et fusionner les resultats cote client. Le merge applicatif est plus previsible et debuggable qu'un resume d'etat SDK interne.
+- 2026-02-19: Lire la doc SDK avant d'ajouter des gardes applicatives. Si le SDK gère le retry, les permissions micro, l'historique complet et les données complètes — ne pas le réimplémenter. Une surcouche qui double le SDK crée des conflits silencieux (ex : transcript dupliqué) et du code mort à maintenir.
 
 ---
 

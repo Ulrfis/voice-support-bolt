@@ -2,7 +2,7 @@
 
 > Transformez la voix de vos clients en tickets structurés, en temps réel.
 
-**Version** : 0.3.0 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
+**Version** : 0.3.1 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
 
 ---
 
@@ -100,8 +100,8 @@ await gami.start_recording();          // démarre le micro
 |-----------|-------|
 | `audio:recording` | Mise à jour de l'état bouton (idle / recording / paused) |
 | `thread:text_current` | Transcription live avec curseur animé |
-| `thread:text_history` | Transcript accumulé |
-| `thread:struct_current` | Champs extraits en temps réel → `Partial<Ticket>` |
+| `thread:text_history` | Historique complet de transcription (fourni entier par le SDK) |
+| `thread:struct_current` | Données structurées complètes en temps réel → `Partial<Ticket>` (fournies entières par le SDK) |
 | `thread:extraction_status` | Détecte la fin de l'extraction après arrêt |
 
 ---
