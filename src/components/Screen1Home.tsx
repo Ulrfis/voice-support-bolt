@@ -1,21 +1,6 @@
-import { Monitor, ShoppingBag, BarChart3, Code2, type LucideIcon } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
 import type { UseCaseId } from '../types';
-
-const iconMap: Record<string, LucideIcon> = {
-  Monitor,
-  ShoppingBag,
-  BarChart3,
-  Code2,
-};
-
-const iconBg: Record<string, string> = {
-  it_support: 'bg-rockman-blue/10 text-rockman-blue',
-  ecommerce: 'bg-spicy-sweetcorn/20 text-chunky-bee',
-  saas: 'bg-joust-blue/10 text-joust-blue',
-  dev_portal: 'bg-rockman-blue/10 text-rockman-blue',
-};
 
 interface Screen1HomeProps {
   onSelectUseCase: (useCaseId: UseCaseId) => void;
@@ -56,27 +41,24 @@ export function Screen1Home({ onSelectUseCase }: Screen1HomeProps) {
         {t('selectUseCase')}
       </h2>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {useCases.map((useCase) => {
-          const Icon = iconMap[useCase.icon] ?? Monitor;
-          return (
-            <button
-              key={useCase.id}
-              onClick={() => onSelectUseCase(useCase.id)}
-              className="group flex flex-col items-center text-center bg-white border-2 border-light-gray rounded-2xl px-4 py-8 hover:border-rockman-blue hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-rockman-blue focus:ring-offset-2"
-            >
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-5 transition-transform duration-200 group-hover:scale-110 ${iconBg[useCase.id]}`}>
-                <Icon size={30} strokeWidth={1.75} />
-              </div>
-              <span className="text-base font-bold text-charcoal group-hover:text-rockman-blue transition-colors font-grotesk leading-tight mb-2">
-                {useCase.name[language]}
-              </span>
-              <span className="text-xs text-silver leading-snug">
-                {useCase.context[language]}
-              </span>
-            </button>
-          );
-        })}
+      <div className="grid grid-cols-2 gap-6">
+        {useCases.map((useCase) => (
+          <button
+            key={useCase.id}
+            onClick={() => onSelectUseCase(useCase.id)}
+            className="group flex flex-col items-center text-center bg-white border-2 border-light-gray rounded-2xl px-6 py-10 hover:border-rockman-blue hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-rockman-blue focus:ring-offset-2"
+          >
+            <div className="text-5xl mb-5 transition-transform duration-200 group-hover:scale-110">
+              {useCase.icon}
+            </div>
+            <span className="text-lg font-bold text-charcoal group-hover:text-rockman-blue transition-colors font-grotesk leading-tight mb-2">
+              {useCase.name[language]}
+            </span>
+            <span className="text-sm text-silver leading-snug">
+              {useCase.context[language]}
+            </span>
+          </button>
+        ))}
       </div>
     </div>
   );
