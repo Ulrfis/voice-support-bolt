@@ -17,9 +17,7 @@ export interface GamiSDK {
 const DEFAULT_SDK_URL = 'http://gamilab.ch/js/sdk.js';
 const SDK_SCRIPT_ID = 'gamilab-sdk-script';
 
-let _instance: GamiSDK | null = null;
-let _connected = false;
-let _initListener: ((evt: Event) => void) | null = null;
+let _sdkPromise: Promise<GamiSDK> | null = null;
 
 function getSDKUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_SDK_URL;
@@ -28,48 +26,31 @@ function getSDKUrl(): string {
 }
 
 export function loadAndInitSDK(): Promise<GamiSDK> {
-  return new Promise((resolve, reject) => {
-    if (_initListener) {
-      window.removeEventListener('gami:init', _initListener);
-      _initListener = null;
-    }
+  if (_sdkPromise) return _sdkPromise;
 
-    _instance = null;
-    _connected = false;
-
-    const oldScript = document.getElementById(SDK_SCRIPT_ID);
-    if (oldScript) {
-      oldScript.remove();
-    }
-
-    _initListener = (evt: Event) => {
+  _sdkPromise = new Promise<GamiSDK>((resolve, reject) => {
+    window.addEventListener('gami:init', (evt: Event) => {
       const e = evt as CustomEvent<{ Gami: () => GamiSDK }>;
-      _instance = e.detail.Gami();
-      _connected = false;
-      resolve(_instance);
-    };
-    window.addEventListener('gami:init', _initListener, { once: true });
+      resolve(e.detail.Gami());
+    }, { once: true });
 
     const script = document.createElement('script');
     script.id = SDK_SCRIPT_ID;
     script.src = getSDKUrl();
     script.defer = true;
     script.onerror = () => {
+      _sdkPromise = null;
       reject(new Error('Failed to load Gamilab SDK'));
     };
     document.body.appendChild(script);
   });
+
+  return _sdkPromise;
 }
 
 export async function connectGami(host: string): Promise<void> {
-  if (!_instance) throw new Error('Gamilab SDK not initialized');
-  if (_connected) return;
-  await _instance.connect(host);
-  _connected = true;
-}
-
-export function getGamiInstance(): GamiSDK | null {
-  return _instance;
+  const gami = await loadAndInitSDK();
+  await gami.connect(host);
 }
 
 export const PORTAL_IDS: Record<UseCaseId, string> = {
