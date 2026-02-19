@@ -381,7 +381,6 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
             {initStatus === 'error' && (
               <div className="flex flex-col items-center gap-3 py-2">
                 <p className="text-sm text-spicy-sweetcorn text-center">{t('connectionError')}</p>
-                {initError && <p className="text-xs text-slate text-center break-all">{initError}</p>}
                 <button
                   onClick={handleRetry}
                   className="px-4 py-2 bg-rockman-blue text-white rounded-lg text-sm font-medium hover:bg-joust-blue transition-colors"
