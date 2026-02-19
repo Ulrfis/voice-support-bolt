@@ -6,18 +6,26 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
-## [0.2.4] - 2026-02-19
+## [0.2.5] - 2026-02-19
 
 ### Corrigé
-- `Channel error` lors de la transcription audio : le singleton SDK Gamilab conservait un `thread_channel` en état d'erreur entre les navigations React, et le nouveau `join()` était rejeté par le serveur Phoenix
-- `disconnectGami()` : ajout d'une fonction de déconnexion explicite qui reset proprement le flag `_connected` — appelée avant chaque nouvelle session d'enregistrement pour garantir un socket et un canal frais
-- `Screen2Recording` : ajout d'un `disconnectGami()` au début de chaque `init()` — force un cycle disconnect/reconnect complet à chaque montage du composant, éliminant les conflits de canaux Phoenix
-- `Screen2Recording` : ajout d'un `disconnectGami()` dans le cleanup du `useEffect` — libère le socket à la navigation pour éviter l'accumulation de canaux fantômes
+- `Channel error` persistant sur `append_record_data` / `init_audio` : cause racine identifiée — `disconnect()` + `connect()` crée un nouveau socket **sans réinitialiser** `portal_channel` et `thread_channel` dans le singleton SDK. Ces propriétés pointaient toujours vers les anciens canaux de l'ancien socket (déconnecté). `create_thread()` appelait `this.portal_channel.push("create_thread")` sur un canal invalide, retournant possiblement les infos d'un ancien thread. Le `thread_channel` créé ensuite était basé sur cet état corrompu → `init_audio` rejeté → Channel error.
+- `disconnectGami()` supprimé de `gamilab.ts` et de tous les appels dans `Screen2Recording` — le socket ne doit **jamais** être déconnecté/reconnecté entre les sessions
+- `connectGami()` garde son flag `_connected` — la connexion est établie une seule fois pour toute la durée de vie de l'application
+- `use_portal()` + `create_thread()` sont appelés à chaque montage du composant sur le socket **existant** — ces opérations recréent proprement `portal_channel` et `thread_channel` sans toucher au socket
 
 ### Analysé (hypothèses explorées avant résolution)
-- Portal IDs (33/34/35/36) : vérifiés via API REST Gamilab — tous valides, correspondent bien aux bons portals du workspace 7
-- Authentification WebSocket : le SDK Phoenix passe le token via Base64 encodé dans le subprotocol WebSocket au `connect()` — pas de clé API à passer manuellement
-- Code source SDK Gamilab (`sdk.js`) analysé : `Channel.error` est défini une fois au `join` et bloque tous les `push` suivants via guard synchrone — un canal en erreur ne peut pas se remettre, il faut recréer la connexion complète
+- Hypothèse 1 : le `thread_channel` était en état `errored` après une session précédente → solution v0.2.4 `disconnectGami()` → inefficace car `disconnect()` ne reset pas les propriétés internes du SDK
+- Hypothèse 2 : problème d'authentification, clé API non passée au WebSocket → SDK source analysé : les portals sont publics, auth via token de thread, pas de clé API WebSocket requise
+- Hypothèse 3 (confirmée) : `connect()` dans le SDK Gamilab ne reset pas `portal_channel`, `thread_channel`, `thread_info` ni `seq` — ces propriétés survivent au cycle disconnect/connect et pointent vers des canaux invalides
+
+---
+
+## [0.2.4] - 2026-02-19
+
+### Corrigé (solution partielle — supersédée par v0.2.5)
+- `disconnectGami()` ajouté pour forcer un cycle disconnect/reconnect avant chaque session
+- Cette approche s'est révélée incorrecte : `disconnect()` dans le SDK ne reset pas l'état interne (`portal_channel`, `thread_channel`), rendant la reconnexion corrompue
 
 ---
 

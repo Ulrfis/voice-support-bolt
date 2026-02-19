@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
-import { waitForGami, connectGami, disconnectGami, PORTAL_IDS, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
+import { waitForGami, connectGami, PORTAL_IDS, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
 import type { UseCaseId, Ticket } from '../types';
 
 interface Screen2RecordingProps {
@@ -107,10 +107,6 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
         gami = await waitForGami();
         if (!mounted) return;
 
-        console.log('[Gamilab] disconnect (reset)...');
-        await disconnectGami();
-        if (!mounted) return;
-
         console.log('[Gamilab] connect(gamilab.ch)...');
         await connectGami('gamilab.ch');
         if (!mounted) return;
@@ -186,7 +182,6 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
       if (gami) {
         eventRefsRef.current.forEach(ref => gami!.off(ref));
         eventRefsRef.current = [];
-        disconnectGami();
       }
     };
   }, [useCaseId]);

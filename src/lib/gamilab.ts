@@ -44,14 +44,6 @@ export async function connectGami(host: string): Promise<void> {
   _connected = true;
 }
 
-export async function disconnectGami(): Promise<void> {
-  if (!_instance) return;
-  try {
-    await _instance.disconnect();
-  } catch (_) {}
-  _connected = false;
-}
-
 export function resetGamiConnection(): void {
   _connected = false;
 }

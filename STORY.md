@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-19 (v0.2.4)
+> **Last Updated**: 2026-02-19 (v0.2.5)
 
 ---
 
@@ -171,6 +171,35 @@
 
 ---
 
+### 2026-02-19 — Channel Error Round 2 : Disconnect/Reconnect = Poison 🔷
+
+**Intent**: Résoudre définitivement le `Channel error` sur `init_audio` / `append_record_data` qui persistait malgré le fix v0.2.4.
+
+**Prompt(s)**:
+> "j'ai retesté, cf capture d'écran — voir pourquoi l'enregistrement ne fonctionne pas (plus)"
+> *(Logs : connect → use_portal(33) → create_thread → start_recording → `audio:recording → recording` → `Uncaught (in promise) Error: Channel error`)*
+
+**Tool**: Claude (Sonnet 4.6)
+
+**Outcome**:
+- SDK source (`sdk.js`) analysé en profondeur : `connect()` dans la classe `A` crée un nouveau socket **mais ne reset aucune propriété interne** — `portal_channel`, `thread_channel`, `thread_info`, `seq`, `state` survivent intacts
+- `create_thread()` appelle `this.portal_channel.push("create_thread")` — sur le vieux canal de l'ancien socket → comportement indéfini (probablement retourne les infos d'un ancien thread)
+- `thread_channel` créé avec ces infos corrompues → `init_audio` push sur un canal invalide → `Channel error`
+- Solution : ne **jamais** appeler `disconnect()` entre les sessions. Le socket reste connecté pour toute la vie de l'app. `use_portal()` + `create_thread()` à chaque montage du composant recréent les canaux proprement sur le socket existant
+- `disconnectGami()` supprimé de `gamilab.ts` et de tous les usages dans `Screen2Recording`
+
+**Surprise**: Le SDK Gamilab (basé sur Phoenix/Elixir) utilise un pattern de canaux qui s'appuient sur un socket persistant. Les portals Gamilab sont **publics** — aucune authentification WebSocket requise. L'auth se fait uniquement via le `token` retourné par `create_thread()`, passé dans les params du `thread_channel`. La connexion WebSocket elle-même est anonyme.
+
+**Friction**:
+- La v0.2.4 (disconnect/reconnect) était basée sur une lecture partielle du problème — le `Channel error` était bien un canal corrompu, mais la cause n'était pas l'accumulation de canaux fantômes, c'était la survie des propriétés internes après disconnect
+- Signe trompeur dans les logs : `thread:extraction_status → done` arrivait immédiatement après `create_thread()`. Cela indiquait que le SDK récupérait l'état d'un ancien thread (celui du `portal_channel` corrompu), pas qu'un nouveau thread propre était créé
+
+**Resolution**: Supprimer tout appel à `disconnect()`. Le socket est établi une fois, les canaux sont recréés à chaque session via `use_portal()` + `create_thread()`.
+
+**Time**: ~30 min (dont ~20 min d'analyse du SDK source + hypothèses)
+
+---
+
 ### 2026-02-18 — Documentation & Changelog 🔹
 
 **Intent**: Documenter l'historique complet du projet dans CHANGELOG, README et STORY
@@ -226,6 +255,8 @@
 - 2026-02-19: Les bugs "fonctionne en local, casse en prod" avec un SDK chargé via `<script>` sont presque toujours des problèmes de singleton + cycle de vie SPA. En local, HMR masque tout. En prod, le singleton persiste entre les navigations React. Toujours tester le flow complet (navigation aller-retour) dans un build de production avant de déclarer victoire.
 - 2026-02-19: Quand un bug résiste à deux hypothèses successives, lire le code source du SDK. La documentation publique ne dit pas tout — le source montre que `Channel.error` est irréversible une fois posé. 30 secondes de lecture auraient évité 20 minutes sur de mauvaises pistes.
 - 2026-02-19: Avant de chercher un bug d'authentification ou de configuration, vérifier les données de base via l'API directement (`curl` avec Bearer token). Ici : 2 commandes curl ont éliminé l'hypothèse "Portal IDs incorrects" en 30 secondes.
+- 2026-02-19: Dans un SDK basé sur Phoenix Channels, `disconnect()` + `connect()` ne reset **pas** l'état interne. Les propriétés comme `portal_channel`, `thread_channel` survivent et pointent vers des canaux de l'ancien socket. La bonne approche : garder le socket vivant, recréer seulement les canaux (`use_portal()` + `create_thread()`) à chaque nouvelle session.
+- 2026-02-19: Un log `thread:extraction_status → done` qui arrive immédiatement après `create_thread()` est un signal fort que le SDK opère sur un thread précédent (état corrompu), pas sur un thread frais. Ce pattern anormal aurait dû être identifié plus tôt.
 
 ---
 
