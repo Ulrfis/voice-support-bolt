@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
 import { supabase } from '../lib/supabase';
-import type { Ticket, UseCaseId, Status, Priority, Category, Tag } from '../types';
+import type { Ticket, UseCaseId, Status, Priority, Tag } from '../types';
 
 interface Screen3HITLProps {
   useCaseId: UseCaseId;
@@ -10,7 +10,7 @@ interface Screen3HITLProps {
   transcript: string;
   ticketId: string;
   onValidate: (ticketData: Partial<Ticket>) => void;
-  onBack: () => void;
+  onBack: (currentData: Partial<Ticket>) => void;
 }
 
 const statusOptions: Status[] = ['new', 'in_progress', 'waiting_customer', 'resolved', 'closed'];
@@ -151,7 +151,7 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
   return (
     <div className="max-w-6xl mx-auto px-4 py-4">
       <button
-        onClick={onBack}
+        onClick={() => onBack(formData)}
         className="mb-3 flex items-center gap-2 text-slate hover:text-charcoal transition-colors text-sm"
       >
         ← {language === 'fr' ? 'Retour à l\'enregistrement' : 'Back to recording'}
@@ -284,7 +284,7 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
         )}
         <div className="flex flex-col sm:flex-row gap-3">
           <button
-            onClick={onBack}
+            onClick={() => onBack(formData)}
             className="flex items-center justify-center gap-1.5 px-4 py-2 bg-off-white border border-light-gray text-charcoal rounded hover:bg-light-gray font-medium transition-colors text-sm sm:shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

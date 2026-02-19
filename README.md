@@ -2,7 +2,7 @@
 
 > Transformez la voix de vos clients en tickets structurés, en temps réel.
 
-**Version** : 0.2.6 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
+**Version** : 0.3.0 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
 
 ---
 

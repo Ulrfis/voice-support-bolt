@@ -27,25 +27,40 @@ if (typeof window !== 'undefined') {
   });
 }
 
+const INIT_TIMEOUT_MS = 10000;
+
 export function waitForGami(): Promise<GamiSDK> {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     if (_instance) {
       resolve(_instance);
-    } else {
-      _pendingCallbacks.push(resolve);
+      return;
     }
+    const timer = setTimeout(() => {
+      const idx = _pendingCallbacks.indexOf(cb);
+      if (idx !== -1) _pendingCallbacks.splice(idx, 1);
+      reject(new Error('Gamilab SDK did not initialize within 10s'));
+    }, INIT_TIMEOUT_MS);
+    const cb = (gami: GamiSDK) => {
+      clearTimeout(timer);
+      resolve(gami);
+    };
+    _pendingCallbacks.push(cb);
   });
 }
 
 export async function connectGami(host: string): Promise<void> {
-  if (!_instance) return;
+  if (!_instance) throw new Error('Gamilab SDK not initialized');
   if (_connected) return;
   await _instance.connect(host);
   _connected = true;
 }
 
-export function resetGamiConnection(): void {
-  _connected = false;
+export function isGamiConnected(): boolean {
+  return _connected && _instance !== null;
+}
+
+export function getGamiInstance(): GamiSDK | null {
+  return _instance;
 }
 
 export const PORTAL_IDS: Record<UseCaseId, string> = {

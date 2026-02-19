@@ -1,17 +1,32 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
-import { waitForGami, connectGami, PORTAL_IDS, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
+import { waitForGami, connectGami, isGamiConnected, PORTAL_IDS, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
 import type { UseCaseId, Ticket } from '../types';
 
 interface Screen2RecordingProps {
   useCaseId: UseCaseId;
   initialData?: Partial<Ticket>;
+  existingTranscript?: string;
   onComplete: (ticketData: Partial<Ticket>, transcript: string, pass2Prompt: string) => void;
   onBack: () => void;
 }
 
-type InitStatus = 'connecting' | 'ready' | 'error';
+type InitPhase = 'idle' | 'loading_sdk' | 'connecting' | 'joining_portal' | 'creating_thread' | 'registering_events' | 'ready' | 'error';
+
+const INIT_PHASE_LABELS: Record<InitPhase, { fr: string; en: string }> = {
+  idle: { fr: 'Initialisation...', en: 'Initializing...' },
+  loading_sdk: { fr: 'Chargement du SDK...', en: 'Loading SDK...' },
+  connecting: { fr: 'Connexion au serveur...', en: 'Connecting to server...' },
+  joining_portal: { fr: 'Accès au portail...', en: 'Joining portal...' },
+  creating_thread: { fr: 'Création de la session...', en: 'Creating session...' },
+  registering_events: { fr: 'Préparation...', en: 'Preparing...' },
+  ready: { fr: 'Prêt', en: 'Ready' },
+  error: { fr: 'Erreur', en: 'Error' },
+};
+
+const MAX_INIT_RETRIES = 3;
+const EXTRACTION_TIMEOUT_MS = 8000;
 
 const QUESTION_FIELD_MAP: Record<UseCaseId, string[]> = {
   it_support: ['device', 'symptoms', 'frequency'],
@@ -45,17 +60,18 @@ const FIELD_LABELS: Record<string, { fr: string; en: string }> = {
 
 const EXCLUDED_DISPLAY_KEYS = new Set(['use_case', 'language', 'status', 'tags', 'priority', 'id', 'created_at', 'raw_transcript', 'email']);
 
-export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }: Screen2RecordingProps) {
+export function Screen2Recording({ useCaseId, initialData, existingTranscript, onComplete, onBack }: Screen2RecordingProps) {
   const { language, t } = useLanguage();
   const useCase = useCases.find(uc => uc.id === useCaseId);
 
-  const [initStatus, setInitStatus] = useState<InitStatus>('connecting');
+  const [initPhase, setInitPhase] = useState<InitPhase>('idle');
   const [initError, setInitError] = useState('');
+  const [initRetryCount, setInitRetryCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasResult, setHasResult] = useState(false);
   const [passCount, setPassCount] = useState(initialData ? 1 : 0);
-  const [transcript, setTranscript] = useState('');
+  const [transcript, setTranscript] = useState(existingTranscript || '');
   const [liveText, setLiveText] = useState('');
   const [structData, setStructData] = useState<Partial<Ticket>>(initialData || {});
   const [displayedProgress, setDisplayedProgress] = useState(0);
@@ -66,6 +82,8 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
   const finalizingRef = useRef(false);
   const isStoppingRef = useRef(false);
   const extractionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  const initAbortRef = useRef<AbortController | null>(null);
 
   const getFieldLabel = (fieldName: string) =>
     FIELD_LABELS[fieldName]?.[language] || fieldName;
@@ -84,7 +102,7 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
       : `Please specify: ${labels}`;
   };
 
-  const finalizeExtraction = () => {
+  const finalizeExtraction = useCallback(() => {
     console.log('[Gamilab] finalizeExtraction() called');
     if (extractionTimeoutRef.current) {
       clearTimeout(extractionTimeoutRef.current);
@@ -96,100 +114,131 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
     setIsProcessing(false);
     setHasResult(true);
     setPassCount(prev => prev + 1);
-    console.log('[Gamilab] hasResult = true, ready for HITL');
-  };
+  }, []);
+
+  const cleanupEvents = useCallback(() => {
+    const gami = gamiRef.current;
+    if (gami && eventRefsRef.current.length > 0) {
+      eventRefsRef.current.forEach(ref => gami.off(ref));
+      eventRefsRef.current = [];
+    }
+  }, []);
+
+  const registerEvents = useCallback((gami: GamiSDK) => {
+    cleanupEvents();
+    const refs: symbol[] = [];
+
+    refs.push(gami.on('audio:recording', (state: unknown) => {
+      console.log('[Gamilab] audio:recording →', state);
+      if (!mountedRef.current) return;
+      const recording = state === 'recording';
+      setIsRecording(recording);
+      if (!recording && finalizingRef.current) {
+        setIsProcessing(true);
+      }
+    }));
+
+    refs.push(gami.on('thread:text_current', (text: unknown) => {
+      if (!mountedRef.current) return;
+      setLiveText(typeof text === 'string' ? text : '');
+    }));
+
+    refs.push(gami.on('thread:text_history', (text: unknown) => {
+      if (!mountedRef.current) return;
+      setTranscript(prev => {
+        const newText = typeof text === 'string' ? text : '';
+        return prev ? prev + ' ' + newText : newText;
+      });
+      setLiveText('');
+    }));
+
+    refs.push(gami.on('thread:struct_current', (data: unknown) => {
+      if (!mountedRef.current) return;
+      const mapped = mapStructToTicket(data as Record<string, unknown>);
+      if (Object.keys(mapped).length > 0) {
+        setStructData(prev => ({ ...prev, ...mapped }));
+      }
+    }));
+
+    refs.push(gami.on('thread:extraction_status', (status: unknown) => {
+      console.log(`[Gamilab] thread:extraction_status → ${status} (finalizing: ${finalizingRef.current})`);
+      if (!mountedRef.current) return;
+      if (status === 'done' && finalizingRef.current) {
+        finalizeExtraction();
+      }
+    }));
+
+    eventRefsRef.current = refs;
+  }, [cleanupEvents, finalizeExtraction]);
+
+  const initSession = useCallback(async (retryCount: number) => {
+    if (initAbortRef.current) {
+      initAbortRef.current.abort();
+    }
+    const abort = new AbortController();
+    initAbortRef.current = abort;
+
+    try {
+      setInitPhase('loading_sdk');
+      setInitError('');
+
+      const gami = await waitForGami();
+      if (abort.signal.aborted || !mountedRef.current) return;
+
+      setInitPhase('connecting');
+      if (!isGamiConnected()) {
+        await connectGami('gamilab.ch');
+      }
+      if (abort.signal.aborted || !mountedRef.current) return;
+
+      const portalId = PORTAL_IDS[useCaseId];
+      setInitPhase('joining_portal');
+      await gami.use_portal(portalId);
+      if (abort.signal.aborted || !mountedRef.current) return;
+
+      setInitPhase('creating_thread');
+      const threadInfo = await gami.create_thread();
+      console.log('[Gamilab] thread →', threadInfo.thread_id);
+      if (abort.signal.aborted || !mountedRef.current) return;
+
+      setInitPhase('registering_events');
+      gamiRef.current = gami;
+      registerEvents(gami);
+
+      setInitPhase('ready');
+      setInitRetryCount(0);
+    } catch (err) {
+      if (abort.signal.aborted || !mountedRef.current) return;
+      console.error('[Gamilab] Init error:', err);
+      const message = err instanceof Error ? err.message : String(err);
+
+      if (retryCount < MAX_INIT_RETRIES - 1) {
+        console.log(`[Gamilab] Retrying init (${retryCount + 1}/${MAX_INIT_RETRIES})...`);
+        setInitRetryCount(retryCount + 1);
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 4000);
+        await new Promise(r => setTimeout(r, delay));
+        if (!abort.signal.aborted && mountedRef.current) {
+          return initSession(retryCount + 1);
+        }
+      } else {
+        setInitPhase('error');
+        setInitError(message);
+      }
+    }
+  }, [useCaseId, registerEvents]);
 
   useEffect(() => {
-    let mounted = true;
-    let gami: GamiSDK | null = null;
-
-    const init = async () => {
-      try {
-        console.log('[Gamilab] waitForGami()...');
-        gami = await waitForGami();
-        if (!mounted) return;
-
-        console.log('[Gamilab] connect(gamilab.ch)...');
-        await connectGami('gamilab.ch');
-        if (!mounted) return;
-
-        const portalId = PORTAL_IDS[useCaseId];
-        console.log(`[Gamilab] use_portal(${portalId}) for ${useCaseId}`);
-        await gami.use_portal(portalId);
-        if (!mounted) return;
-
-        console.log('[Gamilab] create_thread()...');
-        const threadInfo = await gami.create_thread();
-        console.log('[Gamilab] thread info →', JSON.stringify(threadInfo));
-        if (!mounted) return;
-
-        console.log('[Gamilab] Ready. Registering event listeners.');
-        gamiRef.current = gami;
-
-        const refs: symbol[] = [];
-
-        refs.push(gami.on('audio:recording', (state: unknown) => {
-          console.log('[Gamilab] audio:recording →', state);
-          const recording = state === 'recording';
-          setIsRecording(recording);
-          if (!recording && finalizingRef.current) {
-            console.log('[Gamilab] Recording stopped, processing...');
-            setIsProcessing(true);
-          }
-        }));
-
-        refs.push(gami.on('thread:text_current', (text: unknown) => {
-          const preview = typeof text === 'string' ? text.slice(-60) : String(text);
-          console.log('[Gamilab] thread:text_current →', preview);
-          setLiveText(text as string || '');
-        }));
-
-        refs.push(gami.on('thread:text_history', (text: unknown) => {
-          const len = typeof text === 'string' ? text.length : 0;
-          console.log(`[Gamilab] thread:text_history → ${len} chars`);
-          setTranscript(text as string || '');
-          setLiveText('');
-        }));
-
-        refs.push(gami.on('thread:struct_current', (data: unknown) => {
-          console.log('[Gamilab] thread:struct_current →', data);
-          const mapped = mapStructToTicket(data as Record<string, unknown>);
-          console.log('[Gamilab] mapped struct →', mapped);
-          setStructData(prev => ({ ...prev, ...mapped }));
-        }));
-
-        refs.push(gami.on('thread:extraction_status', (status: unknown) => {
-          console.log(`[Gamilab] thread:extraction_status → ${status} (finalizing: ${finalizingRef.current})`);
-          if (status === 'done' && finalizingRef.current) {
-            console.log('[Gamilab] Extraction done, finalizing.');
-            finalizeExtraction();
-          }
-        }));
-
-        eventRefsRef.current = refs;
-        setInitStatus('ready');
-        console.log('[Gamilab] Init complete.');
-      } catch (err) {
-        if (!mounted) return;
-        console.error('[Gamilab] Init error:', err);
-        setInitStatus('error');
-        setInitError(err instanceof Error ? err.message : String(err));
-      }
-    };
-
-    init();
+    mountedRef.current = true;
+    initSession(0);
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
+      if (initAbortRef.current) initAbortRef.current.abort();
       if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      if (gami) {
-        eventRefsRef.current.forEach(ref => gami!.off(ref));
-        eventRefsRef.current = [];
-      }
+      cleanupEvents();
     };
-  }, [useCaseId]);
-
+  }, [useCaseId, initSession, cleanupEvents]);
 
   const handleStartRecording = async () => {
     if (!gamiRef.current) return;
@@ -198,16 +247,22 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
     isStoppingRef.current = false;
     try {
       if (passCount === 0) {
-        console.log('[Gamilab] start_recording()');
         await gamiRef.current.start_recording();
       } else {
-        console.log(`[Gamilab] resume_recording() (pass ${passCount})`);
         await gamiRef.current.resume_recording();
       }
     } catch (err) {
       console.error('[Gamilab] Recording start error:', err);
-      setInitStatus('error');
-      setInitError(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('not allowed')) {
+        setInitPhase('error');
+        setInitError(language === 'fr'
+          ? 'Accès au microphone refusé. Veuillez autoriser l\'accès au microphone dans les paramètres de votre navigateur.'
+          : 'Microphone access denied. Please allow microphone access in your browser settings.');
+      } else {
+        setInitPhase('error');
+        setInitError(msg);
+      }
     }
   };
 
@@ -217,8 +272,11 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
     finalizingRef.current = true;
     setIsRecording(false);
     setIsProcessing(true);
-    console.log('[Gamilab] pause_recording() — waiting for extraction_status:done (6s timeout)');
-    await gamiRef.current.pause_recording();
+    try {
+      await gamiRef.current.pause_recording();
+    } catch (err) {
+      console.error('[Gamilab] pause_recording error:', err);
+    }
 
     if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
     extractionTimeoutRef.current = setTimeout(() => {
@@ -226,13 +284,14 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
         console.warn('[Gamilab] extraction_status timeout — forcing finalization');
         finalizeExtraction();
       }
-    }, 6000);
+    }, EXTRACTION_TIMEOUT_MS);
   };
 
   const handleRetry = () => {
-    setInitStatus('connecting');
+    setInitPhase('idle');
     setInitError('');
-    window.location.reload();
+    setInitRetryCount(0);
+    initSession(0);
   };
 
   const handleContinue = () => {
@@ -278,6 +337,7 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
 
   const progress = displayedProgress;
   const progressColor = targetProgress === 100 ? 'bg-spicy-sweetcorn' : 'bg-chunky-bee';
+  const isInitializing = initPhase !== 'ready' && initPhase !== 'error';
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -399,16 +459,23 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
           </div>
 
           <div className="bg-off-white border border-light-gray rounded-lg shadow-sm p-5">
-            {initStatus === 'connecting' && (
+            {isInitializing && (
               <div className="flex flex-col items-center gap-3 py-4">
                 <div className="w-8 h-8 border-2 border-rockman-blue border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-slate">{t('connecting')}</p>
+                <p className="text-sm text-slate">
+                  {INIT_PHASE_LABELS[initPhase]?.[language] || t('connecting')}
+                </p>
+                {initRetryCount > 0 && (
+                  <p className="text-xs text-silver">
+                    {language === 'fr' ? `Tentative ${initRetryCount + 1}/${MAX_INIT_RETRIES}` : `Attempt ${initRetryCount + 1}/${MAX_INIT_RETRIES}`}
+                  </p>
+                )}
               </div>
             )}
 
-            {initStatus === 'error' && (
+            {initPhase === 'error' && (
               <div className="flex flex-col items-center gap-3 py-2">
-                <p className="text-sm text-spicy-sweetcorn text-center">{t('connectionError')}</p>
+                <p className="text-sm text-spicy-sweetcorn text-center">{initError || t('connectionError')}</p>
                 <button
                   onClick={handleRetry}
                   className="px-4 py-2 bg-rockman-blue text-white rounded-lg text-sm font-medium hover:bg-joust-blue transition-colors"
@@ -418,7 +485,7 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
               </div>
             )}
 
-            {initStatus === 'ready' && (
+            {initPhase === 'ready' && (
               <div className="flex flex-col gap-3">
                 {isProcessing && (
                   <div className="flex items-center justify-center gap-2 py-3 text-slate text-sm">

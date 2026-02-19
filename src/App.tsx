@@ -7,7 +7,7 @@ import { Screen4Confirmation } from './components/Screen4Confirmation';
 import { Backoffice } from './components/Backoffice';
 import { DebugPanel } from './components/DebugPanel';
 import { supabase } from './lib/supabase';
-import type { UseCaseId, Ticket, Language } from './types';
+import type { UseCaseId, Ticket } from './types';
 
 const DEBUG_MODE = new URLSearchParams(window.location.search).has('debug-panel');
 
@@ -19,7 +19,6 @@ function AppContent() {
   const [selectedUseCase, setSelectedUseCase] = useState<UseCaseId | null>(null);
   const [ticketData, setTicketData] = useState<Partial<Ticket>>({});
   const [transcript, setTranscript] = useState('');
-  const [pass2Prompt, setPass2Prompt] = useState('');
   const [createdTicket, setCreatedTicket] = useState<Ticket | null>(null);
 
   const handleSelectUseCase = (useCaseId: UseCaseId) => {
@@ -27,15 +26,16 @@ function AppContent() {
     setCurrentScreen('recording');
   };
 
-  const handleRecordingComplete = async (data: Partial<Ticket>, trans: string, prompt: string) => {
-    setTicketData(data);
-    setTranscript(trans);
-    setPass2Prompt(prompt);
+  const handleRecordingComplete = async (data: Partial<Ticket>, trans: string, _prompt: string) => {
+    const mergedData = { ...ticketData, ...data };
+    const mergedTranscript = trans;
+    setTicketData(mergedData);
+    setTranscript(mergedTranscript);
 
     if (createdTicket) {
       const { data: updated, error } = await supabase
         .from('tickets')
-        .update({ ...data, raw_transcript: trans })
+        .update({ ...mergedData, raw_transcript: mergedTranscript })
         .eq('id', createdTicket.id)
         .select()
         .single();
@@ -52,13 +52,13 @@ function AppContent() {
     }
 
     const ticketToCreate = {
-      ...data,
+      ...mergedData,
       use_case: selectedUseCase!,
       status: 'new',
       priority: 'medium',
       tags: [],
       language: language,
-      raw_transcript: trans
+      raw_transcript: mergedTranscript
     };
 
     const { data: newTicket, error } = await supabase
@@ -104,7 +104,6 @@ function AppContent() {
     setSelectedUseCase(null);
     setTicketData({});
     setTranscript('');
-    setPass2Prompt('');
     setCreatedTicket(null);
   };
 
@@ -152,7 +151,8 @@ function AppContent() {
         {currentScreen === 'recording' && selectedUseCase && (
           <Screen2Recording
             useCaseId={selectedUseCase}
-            initialData={createdTicket ? ticketData : undefined}
+            initialData={ticketData && Object.keys(ticketData).length > 0 ? ticketData : undefined}
+            existingTranscript={transcript || undefined}
             onComplete={handleRecordingComplete}
             onBack={handleBackToHome}
           />
@@ -165,7 +165,10 @@ function AppContent() {
             transcript={transcript}
             ticketId={createdTicket.id}
             onValidate={handleValidate}
-            onBack={() => setCurrentScreen('recording')}
+            onBack={(currentData) => {
+              setTicketData(currentData);
+              setCurrentScreen('recording');
+            }}
           />
         )}
 

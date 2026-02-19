@@ -6,6 +6,27 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.3.0] - 2026-02-19
+
+### Ajouté
+- **Fiabilité enregistrement** : machine d'état d'initialisation à 6 phases (`loading_sdk` → `connecting` → `joining_portal` → `creating_thread` → `registering_events` → `ready`) avec feedback visuel détaillé à chaque étape
+- **Retry automatique** : jusqu'à 3 tentatives avec backoff exponentiel (1s, 2s, 4s) en cas d'échec d'initialisation du SDK ou de la connexion WebSocket
+- **Timeout SDK** : `waitForGami()` échoue proprement après 10 secondes si le script SDK ne se charge pas (au lieu de bloquer indéfiniment)
+- **Détection permission micro** : message d'erreur spécifique et actionnable si l'accès au microphone est refusé par le navigateur
+- **Aller-retour HITL ↔ Enregistrement** : retour fonctionnel depuis la page de validation vers l'enregistrement — les données existantes (champs structurés + transcript) sont conservées et enrichies par la nouvelle session vocale
+- **Cumul des transcripts** : chaque session d'enregistrement ajoute au transcript existant au lieu de le remplacer
+- **Merge structurel** : les données structurées Gamilab de la nouvelle session sont fusionnées (merge) avec les données existantes — les nouveaux champs s'ajoutent, les champs existants sont mis à jour
+
+### Corrigé
+- `Screen2Recording` : le composant ne bloquait plus indéfiniment sur "Connexion..." si le SDK ne se chargeait pas
+- `Screen2Recording` : les events SDK (`struct_current`, `text_history`) reçus après démontage du composant ne corrompent plus l'état React (guard `mountedRef`)
+- `Screen2Recording` : `struct_current: null` émis à l'init du thread est ignoré (seuls les objets non-vides sont mergés)
+- `Screen3HITL` : le bouton "Retour à l'enregistrement" / "Dicter à la voix" remonte les données du formulaire courant (pas les données initiales) avant de naviguer
+- `App.tsx` : les données structurées sont mergées (`{...ticketData, ...data}`) au lieu d'être remplacées lors du retour de l'enregistrement
+- Imports inutilisés supprimés (`Language`, `useEffect`, `Category`, `pass2Prompt`)
+
+---
+
 ## [0.2.6] - 2026-02-19
 
 ### Corrigé
