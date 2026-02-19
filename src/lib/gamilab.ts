@@ -14,7 +14,7 @@ export interface GamiSDK {
   off: (ref: symbol) => void;
 }
 
-const DEFAULT_SDK_URL = 'http://gamilab.ch/js/sdk.js';
+const DEFAULT_SDK_URL = 'https://gamilab.ch/js/sdk.js';
 const SDK_SCRIPT_ID = 'gamilab-sdk-script';
 
 let _loaded = false;
