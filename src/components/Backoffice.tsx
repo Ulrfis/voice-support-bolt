@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import type { Ticket } from '../types';
@@ -66,23 +66,29 @@ export function Backoffice({ onClose }: BackofficeProps) {
     a.href = url;
     a.download = 'tickets.csv';
     a.click();
+    window.URL.revokeObjectURL(url);
   };
 
-  const filteredTickets = tickets.filter(ticket => {
-    const matchesStatus = filterStatus === 'all' || ticket.status === filterStatus;
-    const matchesSearch = !searchTerm ||
-      ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.use_case.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const filteredTickets = useMemo(() => {
+    const normalizedSearch = searchTerm.toLowerCase();
+    return tickets.filter(ticket => {
+      const matchesStatus = filterStatus === 'all' || ticket.status === filterStatus;
+      const matchesSearch = !normalizedSearch ||
+        ticket.id.toLowerCase().includes(normalizedSearch) ||
+        ticket.use_case.toLowerCase().includes(normalizedSearch);
+      return matchesStatus && matchesSearch;
+    });
+  }, [tickets, filterStatus, searchTerm]);
 
-  const statusCounts = {
-    total: tickets.length,
-    new: tickets.filter(t => t.status === 'new').length,
-    in_progress: tickets.filter(t => t.status === 'in_progress').length,
-    resolved: tickets.filter(t => t.status === 'resolved').length,
-    closed: tickets.filter(t => t.status === 'closed').length
-  };
+  const statusCounts = useMemo(() => {
+    return {
+      total: tickets.length,
+      new: tickets.filter(t => t.status === 'new').length,
+      in_progress: tickets.filter(t => t.status === 'in_progress').length,
+      resolved: tickets.filter(t => t.status === 'resolved').length,
+      closed: tickets.filter(t => t.status === 'closed').length
+    };
+  }, [tickets]);
 
   const getPriorityBadge = (priority: string) => {
     const styles = {

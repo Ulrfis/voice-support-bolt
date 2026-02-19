@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
 import { supabase } from '../lib/supabase';
@@ -13,6 +13,8 @@ interface Screen3HITLProps {
   onBack: (currentData: Partial<Ticket>) => void;
 }
 
+type TicketEditableField = Exclude<keyof Ticket, 'id' | 'created_at'>;
+
 const statusOptions: Status[] = ['new', 'in_progress', 'waiting_customer', 'resolved', 'closed'];
 const priorityOptions: Priority[] = ['critical', 'high', 'medium', 'low'];
 const tagOptions: Tag[] = ['urgent', 'recurring', 'first_contact', 'escalation', 'vip_customer', 'workaround_available'];
@@ -22,46 +24,75 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
   const [formData, setFormData] = useState<Partial<Ticket>>(initialData);
   const [isSaving, setIsSaving] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+  const pendingUpdateRef = useRef<Partial<Ticket>>({});
+  const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFlushingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const useCase = useCases.find(uc => uc.id === useCaseId);
 
   if (!useCase) return <div>Error loading use case</div>;
 
-  const updateField = async (field: string, value: any) => {
-    const updatedData = { ...formData, [field]: value };
-    setFormData(updatedData);
+  const flushPendingUpdates = useCallback(async () => {
+    if (isFlushingRef.current) return;
+    const payload = pendingUpdateRef.current;
+    if (Object.keys(payload).length === 0) return;
 
-    setIsSaving(true);
+    pendingUpdateRef.current = {};
+    isFlushingRef.current = true;
+    if (isMountedRef.current) setIsSaving(true);
+
     const { error } = await supabase
       .from('tickets')
-      .update({ [field]: value })
+      .update(payload)
       .eq('id', ticketId);
 
     if (error) {
       console.error('Error updating field:', error);
+      pendingUpdateRef.current = { ...payload, ...pendingUpdateRef.current };
     }
-    setIsSaving(false);
+
+    isFlushingRef.current = false;
+    if (isMountedRef.current) setIsSaving(false);
+  }, [ticketId]);
+
+  const scheduleFlush = useCallback((delay = 450) => {
+    if (flushTimeoutRef.current) clearTimeout(flushTimeoutRef.current);
+    flushTimeoutRef.current = setTimeout(() => {
+      flushTimeoutRef.current = null;
+      void flushPendingUpdates();
+    }, delay);
+  }, [flushPendingUpdates]);
+
+  const queueFieldUpdate = useCallback((field: TicketEditableField, value: unknown) => {
+    pendingUpdateRef.current = {
+      ...pendingUpdateRef.current,
+      [field]: value as Ticket[TicketEditableField]
+    };
+    scheduleFlush();
+  }, [scheduleFlush]);
+
+  const updateField = (field: TicketEditableField, value: unknown) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    queueFieldUpdate(field, value);
   };
 
-  const toggleTag = async (tag: Tag) => {
+  const toggleTag = (tag: Tag) => {
     const currentTags = formData.tags || [];
     const newTags = currentTags.includes(tag)
       ? currentTags.filter(t => t !== tag)
       : [...currentTags, tag];
 
     setFormData(prev => ({ ...prev, tags: newTags }));
-
-    setIsSaving(true);
-    const { error } = await supabase
-      .from('tickets')
-      .update({ tags: newTags })
-      .eq('id', ticketId);
-
-    if (error) {
-      console.error('Error updating tags:', error);
-    }
-    setIsSaving(false);
+    queueFieldUpdate('tags', newTags);
   };
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (flushTimeoutRef.current) clearTimeout(flushTimeoutRef.current);
+    };
+  }, []);
 
   const isFieldComplete = (field: string) => {
     const value = formData[field as keyof Ticket];
@@ -97,7 +128,7 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
     return configs[fieldName];
   };
 
-  const renderField = (fieldName: string) => {
+  const renderField = (fieldName: TicketEditableField) => {
     const config = getFieldConfig(fieldName);
     if (!config) return null;
 
@@ -138,7 +169,7 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
   };
 
   const getFieldsForUseCase = () => {
-    const fieldsByUseCase: Record<UseCaseId, string[]> = {
+    const fieldsByUseCase: Record<UseCaseId, TicketEditableField[]> = {
       it_support: ['device', 'symptoms', 'frequency', 'environment', 'actions_tried', 'impact'],
       ecommerce: ['order_number', 'problem_type', 'product_description', 'delivery_status', 'desired_resolution', 'purchase_date'],
       saas: ['feature', 'symptoms', 'impact', 'environment', 'steps_to_reproduce', 'frequency'],
