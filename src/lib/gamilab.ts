@@ -27,24 +27,13 @@ if (typeof window !== 'undefined') {
   });
 }
 
-const INIT_TIMEOUT_MS = 10000;
-
 export function waitForGami(): Promise<GamiSDK> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (_instance) {
       resolve(_instance);
       return;
     }
-    const timer = setTimeout(() => {
-      const idx = _pendingCallbacks.indexOf(cb);
-      if (idx !== -1) _pendingCallbacks.splice(idx, 1);
-      reject(new Error('Gamilab SDK did not initialize within 10s'));
-    }, INIT_TIMEOUT_MS);
-    const cb = (gami: GamiSDK) => {
-      clearTimeout(timer);
-      resolve(gami);
-    };
-    _pendingCallbacks.push(cb);
+    _pendingCallbacks.push((gami: GamiSDK) => resolve(gami));
   });
 }
 

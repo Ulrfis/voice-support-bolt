@@ -25,7 +25,6 @@ const INIT_PHASE_LABELS: Record<InitPhase, { fr: string; en: string }> = {
   error: { fr: 'Erreur', en: 'Error' },
 };
 
-const MAX_INIT_RETRIES = 3;
 const EXTRACTION_TIMEOUT_MS = 8000;
 
 const QUESTION_FIELD_MAP: Record<UseCaseId, string[]> = {
@@ -66,7 +65,6 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
 
   const [initPhase, setInitPhase] = useState<InitPhase>('idle');
   const [initError, setInitError] = useState('');
-  const [initRetryCount, setInitRetryCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasResult, setHasResult] = useState(false);
@@ -145,10 +143,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
 
     refs.push(gami.on('thread:text_history', (text: unknown) => {
       if (!mountedRef.current) return;
-      setTranscript(prev => {
-        const newText = typeof text === 'string' ? text : '';
-        return prev ? prev + ' ' + newText : newText;
-      });
+      setTranscript(typeof text === 'string' ? text : '');
       setLiveText('');
     }));
 
@@ -156,7 +151,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       if (!mountedRef.current) return;
       const mapped = mapStructToTicket(data as Record<string, unknown>);
       if (Object.keys(mapped).length > 0) {
-        setStructData(prev => ({ ...prev, ...mapped }));
+        setStructData(mapped);
       }
     }));
 
@@ -171,7 +166,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
     eventRefsRef.current = refs;
   }, [cleanupEvents, finalizeExtraction]);
 
-  const initSession = useCallback(async (retryCount: number) => {
+  const initSession = useCallback(async () => {
     if (initAbortRef.current) {
       initAbortRef.current.abort();
     }
@@ -206,30 +201,17 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       registerEvents(gami);
 
       setInitPhase('ready');
-      setInitRetryCount(0);
     } catch (err) {
       if (abort.signal.aborted || !mountedRef.current) return;
       console.error('[Gamilab] Init error:', err);
-      const message = err instanceof Error ? err.message : String(err);
-
-      if (retryCount < MAX_INIT_RETRIES - 1) {
-        console.log(`[Gamilab] Retrying init (${retryCount + 1}/${MAX_INIT_RETRIES})...`);
-        setInitRetryCount(retryCount + 1);
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 4000);
-        await new Promise(r => setTimeout(r, delay));
-        if (!abort.signal.aborted && mountedRef.current) {
-          return initSession(retryCount + 1);
-        }
-      } else {
-        setInitPhase('error');
-        setInitError(message);
-      }
+      setInitPhase('error');
+      setInitError(err instanceof Error ? err.message : String(err));
     }
   }, [useCaseId, registerEvents]);
 
   useEffect(() => {
     mountedRef.current = true;
-    initSession(0);
+    initSession();
 
     return () => {
       mountedRef.current = false;
@@ -253,16 +235,8 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       }
     } catch (err) {
       console.error('[Gamilab] Recording start error:', err);
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('not allowed')) {
-        setInitPhase('error');
-        setInitError(language === 'fr'
-          ? 'Accès au microphone refusé. Veuillez autoriser l\'accès au microphone dans les paramètres de votre navigateur.'
-          : 'Microphone access denied. Please allow microphone access in your browser settings.');
-      } else {
-        setInitPhase('error');
-        setInitError(msg);
-      }
+      setInitPhase('error');
+      setInitError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -290,8 +264,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   const handleRetry = () => {
     setInitPhase('idle');
     setInitError('');
-    setInitRetryCount(0);
-    initSession(0);
+    initSession();
   };
 
   const handleContinue = () => {
@@ -465,11 +438,6 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
                 <p className="text-sm text-slate">
                   {INIT_PHASE_LABELS[initPhase]?.[language] || t('connecting')}
                 </p>
-                {initRetryCount > 0 && (
-                  <p className="text-xs text-silver">
-                    {language === 'fr' ? `Tentative ${initRetryCount + 1}/${MAX_INIT_RETRIES}` : `Attempt ${initRetryCount + 1}/${MAX_INIT_RETRIES}`}
-                  </p>
-                )}
               </div>
             )}
 
