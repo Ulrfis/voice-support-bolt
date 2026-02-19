@@ -183,9 +183,19 @@ function AppContent() {
 
       {currentScreen !== 'backoffice' && (
         <footer className="bg-white border-t border-light-gray mt-12">
-          <div className="max-w-7xl mx-auto px-4 py-6 text-center">
-            <p className="text-sm text-slate">
-              {t('poweredBy')}
+          <div className="max-w-7xl mx-auto px-4 py-4 text-center">
+            <p className="text-xs text-silver">
+              {t('poweredBy')}{' '}
+              <a href="https://audiogami.com/" target="_blank" rel="noopener noreferrer" className="text-slate hover:text-charcoal underline underline-offset-2 transition-colors">
+                Audiogami
+              </a>
+              {' · '}
+              {t('poweredByMade')}{' '}
+              <a href="https://memoways.com/" target="_blank" rel="noopener noreferrer" className="text-slate hover:text-charcoal underline underline-offset-2 transition-colors">
+                Memoways
+              </a>
+              {' · '}
+              {t('poweredByDate')}
             </p>
           </div>
         </footer>
