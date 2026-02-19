@@ -3,7 +3,7 @@ import type { UseCase } from '../types';
 export const useCases: UseCase[] = [
   {
     id: 'it_support',
-    icon: '🖥️',
+    icon: 'Monitor',
     name: {
       fr: 'PC Expert Support',
       en: 'PC Expert Support'
@@ -41,7 +41,7 @@ export const useCases: UseCase[] = [
   },
   {
     id: 'ecommerce',
-    icon: '👟',
+    icon: 'ShoppingBag',
     name: {
       fr: 'ShoeShop Support',
       en: 'ShoeShop Support'
@@ -79,7 +79,7 @@ export const useCases: UseCase[] = [
   },
   {
     id: 'saas',
-    icon: '📊',
+    icon: 'BarChart3',
     name: {
       fr: 'CRM Helper',
       en: 'CRM Helper'
@@ -117,7 +117,7 @@ export const useCases: UseCase[] = [
   },
   {
     id: 'dev_portal',
-    icon: '💻',
+    icon: 'Code2',
     name: {
       fr: 'DevPortal Feedback',
       en: 'DevPortal Feedback'
