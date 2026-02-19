@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-19 (v0.2.6)
+> **Last Updated**: 2026-02-19 (v0.3.0)
 
 ---
 
@@ -200,6 +200,38 @@
 
 ---
 
+### 2026-02-19 — Fiabilité Enregistrement & Aller-Retour HITL ↔ Recording 🔷
+
+**Intent**: Deux bugs bloquants : (1) l'enregistrement ne fonctionne pas a tous les coups (parfois rien ne se passe), (2) le retour depuis la page HITL vers l'enregistrement ne fonctionne pas -- les donnees sont perdues et une nouvelle session vocale ne peut pas enrichir un ticket existant.
+
+**Prompt(s)**:
+> "la mecanique enregistrement et transcription ne fonctionne pas a tous les coups; parfois rien ne se passe. Verifier pourquoi et assurer une mecanique qui fonctionne a 100%"
+> "une fois que l'on est sur la page human in the loop et que l'on veut revenir sur la page enregistrement pour completer ou corriger, cela ne fonctionne pas"
+
+**Tool**: Claude (Opus 4.6)
+
+**Outcome**:
+- Analyse complete du flux d'initialisation SDK : 5 points de defaillance identifies (pas de timeout sur `waitForGami()`, pas de retry, erreur micro silencieuse, events post-unmount, pas de re-init sans reload)
+- Machine d'etat a 6 phases (`loading_sdk` → `connecting` → `joining_portal` → `creating_thread` → `registering_events` → `ready`) avec feedback bilingue a chaque etape
+- Retry automatique 3x avec backoff exponentiel + timeout 10s sur chargement SDK
+- Detection intelligente de la permission microphone (message specifique au lieu d'erreur generique)
+- Guard `mountedRef` sur tous les callbacks SDK pour eviter les updates post-unmount
+- Aller-retour HITL ↔ Recording : `Screen3HITL.onBack` remonte les donnees editees du formulaire, `App.tsx` les passe en `initialData` + `existingTranscript` au composant Recording
+- Chaque nouvelle session cree un nouveau thread Gamilab (limitation SDK : pas de resume_thread cross-session), mais les donnees sont mergees au niveau React (`{...existingData, ...newData}`) et le transcript est cumule
+- Build propre, zero erreur TypeScript
+
+**Surprise**: Le SDK Gamilab ne supporte pas le "resume" d'un thread dans un nouveau contexte de composant. `resume_recording()` ne fonctionne que sur le thread courant du singleton. La solution est de creer un nouveau thread a chaque retour depuis HITL, laisser Gamilab re-extraire les nouveaux champs, et fusionner au niveau applicatif. Ce pattern de merge cote client est plus robuste que de tenter de reutiliser un thread zombie.
+
+**Friction**:
+- Le `waitForGami()` original ne rejectait jamais -- si le script SDK ne charge pas (CDN down, bloqueur), l'utilisateur restait bloque sur "Connexion..." indefiniment sans message d'erreur
+- Le `thread:text_history` remplacait le transcript au lieu de l'appender -- sur un aller-retour, tout le transcript precedent etait ecrase par celui du nouveau thread
+
+**Resolution**: Timeout 10s sur `waitForGami()`, retry avec backoff, AbortController pour annuler l'init au demontage, merge des donnees au niveau App, cumul des transcripts.
+
+**Time**: ~30 min
+
+---
+
 ### 2026-02-19 — Responsive Mobile Complet 🔷
 
 **Intent**: Assurer une compatibilité 100% mobile sur tous les écrans — l'app devait être pleinement utilisable sur smartphone sans aucune mise en page cassée.
@@ -286,6 +318,8 @@
 - 2026-02-19: Avant de chercher un bug d'authentification ou de configuration, vérifier les données de base via l'API directement (`curl` avec Bearer token). Ici : 2 commandes curl ont éliminé l'hypothèse "Portal IDs incorrects" en 30 secondes.
 - 2026-02-19: Dans un SDK basé sur Phoenix Channels, `disconnect()` + `connect()` ne reset **pas** l'état interne. Les propriétés comme `portal_channel`, `thread_channel` survivent et pointent vers des canaux de l'ancien socket. La bonne approche : garder le socket vivant, recréer seulement les canaux (`use_portal()` + `create_thread()`) à chaque nouvelle session.
 - 2026-02-19: Un log `thread:extraction_status → done` qui arrive immédiatement après `create_thread()` est un signal fort que le SDK opère sur un thread précédent (état corrompu), pas sur un thread frais. Ce pattern anormal aurait dû être identifié plus tôt.
+- 2026-02-19: Quand un SDK tiers peut silencieusement echouer (pas de timeout, pas d'erreur visible), toujours ajouter ses propres timeouts et retries. Une Promise qui ne resolve jamais est pire qu'une erreur explicite.
+- 2026-02-19: Pour un aller-retour entre deux ecrans qui enrichissent les memes donnees, ne pas essayer de reutiliser la session SDK -- creer une session fraiche et fusionner les resultats cote client. Le merge applicatif est plus previsible et debuggable qu'un resume d'etat SDK interne.
 
 ---
 
