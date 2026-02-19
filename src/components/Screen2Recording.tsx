@@ -117,7 +117,8 @@ export function Screen2Recording({ useCaseId, initialData, onComplete, onBack }:
         if (!mounted) return;
 
         console.log('[Gamilab] create_thread()...');
-        await gami.create_thread();
+        const threadInfo = await gami.create_thread();
+        console.log('[Gamilab] thread info →', JSON.stringify(threadInfo));
         if (!mounted) return;
 
         console.log('[Gamilab] Ready. Registering event listeners.');
