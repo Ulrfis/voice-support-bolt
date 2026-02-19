@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-19 (v0.2.3)
+> **Last Updated**: 2026-02-19 (v0.2.4)
 
 ---
 
@@ -140,29 +140,34 @@
 
 ---
 
-### 2026-02-19 — Correction Channel Error Netlify (Singleton WebSocket) 🔷
+### 2026-02-19 — Correction Channel Error (Canaux Phoenix Fantômes) 🔷
 
-**Intent**: Résoudre le `Channel error` qui apparaissait sur Netlify mais pas en local lors du montage/remontage de `Screen2Recording`.
+**Intent**: Résoudre le `Channel error` persistant qui bloquait la transcription audio à chaque tentative d'enregistrement.
 
 **Prompt(s)**:
-> "enlever le screeshot ajouté !! Il contient une clé API ! C'est pour vous donner la réponse à la question du dessus !"
-> *(Le screenshot montrait la configuration Netlify des variables d'environnement — confirmation que les env vars étaient bien en place, donc le problème venait d'ailleurs)*
+> "J'ai toujours un souci pour transcrire l'input audio"
+> *(Screenshot du DebugPanel montrant : connect → use_portal → create_thread → start_recording → `audio:recording → recording` → `Uncaught (in promise) Error: Channel error`)*
+> "Il faut aller voir les bonnes ID depuis l'API Gamilab, et me donner les bonnes ID pour les divers Models"
 
 **Tool**: Claude (Sonnet 4.6)
 
 **Outcome**:
-- Identification de la cause racine : `connect()` était rappelé sur le singleton Gamilab à chaque montage du composant, corrompant l'état interne du canal WebSocket Phoenix
-- Extraction dans `connectGami()` avec flag `_connected` dans `src/lib/gamilab.ts` — la connexion n'est établie qu'une seule fois, les appels suivants sont silencieusement ignorés
-- Suppression du `disconnect()` dans le cleanup du `useEffect` — déconnecter le singleton rendait impossible toute reconnexion lors des navigations suivantes
-- `resetGamiConnection()` exporté pour les cas où une reconnexion forcée serait nécessaire (déconnexion volontaire)
+- Portal IDs vérifiés via `curl` sur l'API REST Gamilab avec la clé Bearer — 33/34/35/36 sont corrects, workspace 7 confirmé
+- Code source du SDK Gamilab (`sdk.js`, ~1200 lignes minifiées) analysé en intégralité
+- Cause racine identifiée : le `thread_channel.join()` échouait à cause d'un canal Phoenix précédent en état `errored` persistant dans le singleton, bloquant tous les `push` suivants via guard synchrone (`if(this.error) return reject`)
+- Solution : `disconnectGami()` ajouté dans `gamilab.ts` + appelé en début d'init et au cleanup dans `Screen2Recording`
+- Chaque session d'enregistrement repart maintenant d'un socket et d'un `thread_channel` frais
 
-**Surprise**: En local, le rechargement à chaud (HMR) de Vite masquait le problème — chaque rechargement recréait le contexte JS complet, donc le singleton était toujours frais. Sur Netlify en production, le SDK était chargé une fois via `<script defer>` et le singleton persistait pendant toute la session. Les navigations React (SPA) remontaient le composant sans recharger la page — d'où le bug uniquement en production.
+**Surprise**: Le SDK Gamilab expose clairement dans son code que `Channel.error` est irréversible une fois défini — le canal est mort et aucun push ne peut passer. Il faut absolument recréer le canal en entier. Ce n'est pas documenté dans la SDK doc publique mais lisible directement dans le source.
 
-**Friction**: La piste initiale pointait vers un problème d'authentification (clé API non passée au WebSocket), mais le SDK Phoenix passe l'auth via le token Base64 dans le WebSocket upgrade — pas besoin de passer la clé à `connect()`.
+**Friction**:
+- Première piste : les Portal IDs étaient peut-être incorrects (33/34/35/36 semblaient arbitraires). Vérification via API — piste incorrecte, les IDs sont bons.
+- Deuxième piste : la clé API n'était pas passée au WebSocket `connect()`. Analyse du SDK source — piste incorrecte, le SDK Phoenix gère l'auth via subprotocol Bearer au niveau du socket, pas besoin de passer la clé API manuellement.
+- Vraie cause : cycle de vie du singleton vs cycle de vie du composant React. Le composant se recrée à chaque navigation ; le singleton SDK non. Les canaux en erreur s'accumulent sans être nettoyés.
 
-**Resolution**: Flag `_connected` sur le singleton. Simple, minimal, idempotent.
+**Resolution**: `disconnectGami()` force un cycle complet avant chaque nouvelle session. Le flag `_connected` est reset, le socket se reconnecte proprement, les nouveaux canaux sont sains.
 
-**Time**: ~15 min
+**Time**: ~30 min (dont ~15 min d'analyse du SDK source)
 
 ---
 
@@ -219,6 +224,8 @@
 - 2026-02-18: Un SDK peut émettre des événements "vides" (null, {}) lors de son initialisation — toujours défendre les fonctions de mapping contre ces valeurs limites. Ne pas supposer que les données reçues sont toujours valides même si elles viennent d'une source "contrôlée".
 - 2026-02-18: Quand un bouton d'arrêt ne répond pas visuellement immédiatement, l'utilisateur reclique. La solution n'est pas un debounce — c'est de mettre à jour l'état UI instantanément au clic, sans attendre la confirmation du système sous-jacent.
 - 2026-02-19: Les bugs "fonctionne en local, casse en prod" avec un SDK chargé via `<script>` sont presque toujours des problèmes de singleton + cycle de vie SPA. En local, HMR masque tout. En prod, le singleton persiste entre les navigations React. Toujours tester le flow complet (navigation aller-retour) dans un build de production avant de déclarer victoire.
+- 2026-02-19: Quand un bug résiste à deux hypothèses successives, lire le code source du SDK. La documentation publique ne dit pas tout — le source montre que `Channel.error` est irréversible une fois posé. 30 secondes de lecture auraient évité 20 minutes sur de mauvaises pistes.
+- 2026-02-19: Avant de chercher un bug d'authentification ou de configuration, vérifier les données de base via l'API directement (`curl` avec Bearer token). Ici : 2 commandes curl ont éliminé l'hypothèse "Portal IDs incorrects" en 30 secondes.
 
 ---
 

@@ -6,6 +6,21 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.2.4] - 2026-02-19
+
+### Corrigé
+- `Channel error` lors de la transcription audio : le singleton SDK Gamilab conservait un `thread_channel` en état d'erreur entre les navigations React, et le nouveau `join()` était rejeté par le serveur Phoenix
+- `disconnectGami()` : ajout d'une fonction de déconnexion explicite qui reset proprement le flag `_connected` — appelée avant chaque nouvelle session d'enregistrement pour garantir un socket et un canal frais
+- `Screen2Recording` : ajout d'un `disconnectGami()` au début de chaque `init()` — force un cycle disconnect/reconnect complet à chaque montage du composant, éliminant les conflits de canaux Phoenix
+- `Screen2Recording` : ajout d'un `disconnectGami()` dans le cleanup du `useEffect` — libère le socket à la navigation pour éviter l'accumulation de canaux fantômes
+
+### Analysé (hypothèses explorées avant résolution)
+- Portal IDs (33/34/35/36) : vérifiés via API REST Gamilab — tous valides, correspondent bien aux bons portals du workspace 7
+- Authentification WebSocket : le SDK Phoenix passe le token via Base64 encodé dans le subprotocol WebSocket au `connect()` — pas de clé API à passer manuellement
+- Code source SDK Gamilab (`sdk.js`) analysé : `Channel.error` est défini une fois au `join` et bloque tous les `push` suivants via guard synchrone — un canal en erreur ne peut pas se remettre, il faut recréer la connexion complète
+
+---
+
 ## [0.2.3] - 2026-02-19
 
 ### Corrigé
