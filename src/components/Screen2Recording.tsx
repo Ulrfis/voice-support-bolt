@@ -181,7 +181,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       if (abort.signal.aborted || !mountedRef.current) return;
 
       setInitPhase('connecting');
-      await connectGami('gamilab.ch');
+      await connectGami('gamilab.ch', gami);
       if (abort.signal.aborted || !mountedRef.current) return;
 
       const portalId = PORTAL_IDS[useCaseId];
