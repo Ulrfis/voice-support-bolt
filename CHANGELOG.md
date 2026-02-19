@@ -6,6 +6,15 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.2.3] - 2026-02-19
+
+### Corrigé
+- `connectGami()` : extraction du `connect()` dans une fonction dédiée avec flag `_connected` — empêche les appels multiples à `connect()` sur le singleton Gamilab lors du remontage du composant (cause du `Channel error` sur Netlify)
+- `Screen2Recording` : suppression du `disconnect()` au démontage du composant — déconnecter le singleton rompait la session WebSocket de manière irréversible pour les navigations suivantes
+- `Screen2Recording` : utilisation de `connectGami()` au lieu de `gami.connect()` directement pour garantir l'idempotence des connexions successives
+
+---
+
 ## [0.2.2] - 2026-02-18
 
 ### Corrigé

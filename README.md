@@ -2,7 +2,7 @@
 
 > Transformez la voix de vos clients en tickets structurés, en temps réel.
 
-**Version** : 0.2.2 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
+**Version** : 0.2.3 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
 
 ---
 
@@ -45,7 +45,7 @@ src/
 │   ├── useCases.ts             # Définitions des cas d'usage (questions, champs requis)
 │   └── transcripts.ts          # Exemples de transcripts (référence)
 ├── lib/
-│   ├── gamilab.ts              # SDK wrapper : waitForGami(), mapStructToTicket(), PORTAL_IDS
+│   ├── gamilab.ts              # SDK wrapper : waitForGami(), connectGami(), mapStructToTicket(), PORTAL_IDS
 │   ├── notion.ts               # Placeholder push Notion
 │   └── supabase.ts             # Client Supabase singleton
 └── types.ts                    # Types TypeScript (Ticket, UseCaseId, Priority…)
@@ -85,12 +85,14 @@ Le SDK est chargé via un script `defer` dans `index.html` :
 Initialisation via l'événement `gami:init` (géré dans `src/lib/gamilab.ts`) :
 
 ```typescript
-waitForGami()                          // attend que le SDK soit prêt
-  .then(gami => gami.connect('gamilab.ch'))
-  .then(() => gami.use_portal('33'))   // portal IT Support
-  .then(() => gami.create_thread())
-  .then(() => gami.start_recording()); // démarre le micro
+const gami = await waitForGami();      // attend que le SDK soit prêt
+await connectGami('gamilab.ch');       // connexion idempotente (une seule fois par session)
+await gami.use_portal('33');           // portal IT Support
+await gami.create_thread();
+await gami.start_recording();          // démarre le micro
 ```
+
+> **Note** : `connectGami()` utilise un flag interne — appeler `connect()` plusieurs fois sur le singleton Gamilab corrompt l'état du canal WebSocket (bug production uniquement, masqué par HMR en local).
 
 Événements SDK utilisés :
 

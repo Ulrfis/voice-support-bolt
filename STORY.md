@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-18 (v0.2.2)
+> **Last Updated**: 2026-02-19 (v0.2.3)
 
 ---
 
@@ -140,6 +140,32 @@
 
 ---
 
+### 2026-02-19 — Correction Channel Error Netlify (Singleton WebSocket) 🔷
+
+**Intent**: Résoudre le `Channel error` qui apparaissait sur Netlify mais pas en local lors du montage/remontage de `Screen2Recording`.
+
+**Prompt(s)**:
+> "enlever le screeshot ajouté !! Il contient une clé API ! C'est pour vous donner la réponse à la question du dessus !"
+> *(Le screenshot montrait la configuration Netlify des variables d'environnement — confirmation que les env vars étaient bien en place, donc le problème venait d'ailleurs)*
+
+**Tool**: Claude (Sonnet 4.6)
+
+**Outcome**:
+- Identification de la cause racine : `connect()` était rappelé sur le singleton Gamilab à chaque montage du composant, corrompant l'état interne du canal WebSocket Phoenix
+- Extraction dans `connectGami()` avec flag `_connected` dans `src/lib/gamilab.ts` — la connexion n'est établie qu'une seule fois, les appels suivants sont silencieusement ignorés
+- Suppression du `disconnect()` dans le cleanup du `useEffect` — déconnecter le singleton rendait impossible toute reconnexion lors des navigations suivantes
+- `resetGamiConnection()` exporté pour les cas où une reconnexion forcée serait nécessaire (déconnexion volontaire)
+
+**Surprise**: En local, le rechargement à chaud (HMR) de Vite masquait le problème — chaque rechargement recréait le contexte JS complet, donc le singleton était toujours frais. Sur Netlify en production, le SDK était chargé une fois via `<script defer>` et le singleton persistait pendant toute la session. Les navigations React (SPA) remontaient le composant sans recharger la page — d'où le bug uniquement en production.
+
+**Friction**: La piste initiale pointait vers un problème d'authentification (clé API non passée au WebSocket), mais le SDK Phoenix passe l'auth via le token Base64 dans le WebSocket upgrade — pas besoin de passer la clé à `connect()`.
+
+**Resolution**: Flag `_connected` sur le singleton. Simple, minimal, idempotent.
+
+**Time**: ~15 min
+
+---
+
 ### 2026-02-18 — Documentation & Changelog 🔹
 
 **Intent**: Documenter l'historique complet du projet dans CHANGELOG, README et STORY
@@ -192,6 +218,7 @@
 - 2026-02-18: Les APIs tierces (Notion, etc.) bloquent souvent les appels directs depuis le navigateur par CORS. Toujours prévoir une couche serveur (Edge Function) dès le scaffolding pour éviter de devoir refactorer plus tard.
 - 2026-02-18: Un SDK peut émettre des événements "vides" (null, {}) lors de son initialisation — toujours défendre les fonctions de mapping contre ces valeurs limites. Ne pas supposer que les données reçues sont toujours valides même si elles viennent d'une source "contrôlée".
 - 2026-02-18: Quand un bouton d'arrêt ne répond pas visuellement immédiatement, l'utilisateur reclique. La solution n'est pas un debounce — c'est de mettre à jour l'état UI instantanément au clic, sans attendre la confirmation du système sous-jacent.
+- 2026-02-19: Les bugs "fonctionne en local, casse en prod" avec un SDK chargé via `<script>` sont presque toujours des problèmes de singleton + cycle de vie SPA. En local, HMR masque tout. En prod, le singleton persiste entre les navigations React. Toujours tester le flow complet (navigation aller-retour) dans un build de production avant de déclarer victoire.
 
 ---
 
