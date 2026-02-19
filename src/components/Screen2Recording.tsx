@@ -191,14 +191,14 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       await gami.use_portal(portalId);
       if (abort.signal.aborted || !mountedRef.current) return;
 
+      setInitPhase('registering_events');
+      gamiRef.current = gami;
+      registerEvents(gami);
+
       setInitPhase('creating_thread');
       const threadInfo = await gami.create_thread();
       console.log('[Gamilab] thread →', threadInfo.thread_id);
       if (abort.signal.aborted || !mountedRef.current) return;
-
-      setInitPhase('registering_events');
-      gamiRef.current = gami;
-      registerEvents(gami);
 
       setInitPhase('ready');
     } catch (err) {
