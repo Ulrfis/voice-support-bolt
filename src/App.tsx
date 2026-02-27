@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Info } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Screen1Home } from './components/Screen1Home';
 import { Screen2Recording } from './components/Screen2Recording';
@@ -6,6 +7,7 @@ import { Screen3HITL } from './components/Screen3HITL';
 import { Screen4Confirmation } from './components/Screen4Confirmation';
 import { Backoffice } from './components/Backoffice';
 import { DebugPanel } from './components/DebugPanel';
+import { InfoModal } from './components/InfoModal';
 import { supabase } from './lib/supabase';
 import type { UseCaseId, Ticket } from './types';
 
@@ -20,6 +22,7 @@ function AppContent() {
   const [ticketData, setTicketData] = useState<Partial<Ticket>>({});
   const [transcript, setTranscript] = useState('');
   const [createdTicket, setCreatedTicket] = useState<Ticket | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const handleSelectUseCase = (useCaseId: UseCaseId) => {
     setSelectedUseCase(useCaseId);
@@ -133,12 +136,21 @@ function AppContent() {
               />
             </button>
 
-            <button
-              onClick={toggleLanguage}
-              className="px-4 py-2 bg-off-white hover:bg-light-gray rounded font-medium text-charcoal transition-colors"
-            >
-              {language.toUpperCase()}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setInfoOpen(true)}
+                className="p-2 rounded-lg hover:bg-off-white transition-colors text-slate hover:text-rockman-blue"
+                title="Info"
+              >
+                <Info className="w-5 h-5" />
+              </button>
+              <button
+                onClick={toggleLanguage}
+                className="px-4 py-2 bg-off-white hover:bg-light-gray rounded font-medium text-charcoal transition-colors"
+              >
+                {language.toUpperCase()}
+              </button>
+            </div>
           </div>
         </header>
       )}
@@ -209,6 +221,8 @@ function AppContent() {
           </div>
         </footer>
       )}
+
+      <InfoModal isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
     </div>
   );
 }

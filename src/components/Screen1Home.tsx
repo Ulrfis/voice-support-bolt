@@ -16,6 +16,10 @@ const disclaimer = {
     fr: 'Cette application est une d\u00e9mo technique. Les cas d\'usage pr\u00e9sent\u00e9s sont fictifs. Son seul objectif est de montrer comment une transcription vocale peut \u00eatre automatiquement transform\u00e9e en donn\u00e9es structur\u00e9es gr\u00e2ce \u00e0 l\'API Gamilab.',
     en: 'This application is a technical demo. The use cases shown are fictional. Its sole purpose is to demonstrate how a voice transcription can be automatically transformed into structured data using the Gamilab API.',
   },
+  troubleshoot: {
+    fr: 'Si la capture audio est bloqu\u00e9e ou que la transformation ne se fait pas, rafra\u00eechissez la page.',
+    en: 'If audio capture is blocked or the transformation does not work, refresh the page.',
+  },
 };
 
 export function Screen1Home({ onSelectUseCase }: Screen1HomeProps) {
@@ -52,9 +56,12 @@ export function Screen1Home({ onSelectUseCase }: Screen1HomeProps) {
             disclaimerOpen ? 'max-h-40 opacity-100 mb-6' : 'max-h-0 opacity-0'
           }`}
         >
-          <div className="max-w-2xl mx-auto bg-spicy-sweetcorn bg-opacity-10 border border-spicy-sweetcorn border-opacity-30 rounded-lg px-5 py-4">
+          <div className="max-w-2xl mx-auto bg-spicy-sweetcorn bg-opacity-10 border border-spicy-sweetcorn border-opacity-30 rounded-lg px-5 py-4 space-y-2">
             <p className="text-sm text-charcoal leading-relaxed">
               {disclaimer.body[language]}
+            </p>
+            <p className="text-sm text-charcoal leading-relaxed font-medium">
+              {disclaimer.troubleshoot[language]}
             </p>
           </div>
         </div>
