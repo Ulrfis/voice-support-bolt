@@ -24,7 +24,7 @@ const content = {
     techStack: 'Stack technique',
     techStackBody: 'React, TypeScript, Vite, Tailwind CSS, Supabase (base de donnees PostgreSQL), SDK Gamilab (WebSocket temps reel), Lucide React (icones), PostHog (analytics).',
     aboutAudiogami: 'A propos d\'Audiogami',
-    aboutAudiogamiBody: 'Audiogami est un projet developpe par Memoways qui explore les applications de l\'intelligence artificielle appliquee a la voix. L\'API Gamilab, au coeur de ce demonstrateur, permet de transformer des flux audio en donnees exploitables de maniere automatique et configurable.',
+    aboutAudiogamiBody: 'Audiogami est un projet developpe par Gamilab qui explore les applications de l\'intelligence artificielle appliquee a la voix. L\'API Gamilab, au coeur de ce demonstrateur, permet de transformer des flux audio en donnees exploitables de maniere automatique et configurable.\n\nCe demonstrateur a ete developpe par Memoways, partenaire d\'implementation de Gamilab.',
     feedbackBtn: 'Faire un feedback / prendre contact',
     close: 'Fermer',
   },
@@ -45,7 +45,7 @@ const content = {
     techStack: 'Tech stack',
     techStackBody: 'React, TypeScript, Vite, Tailwind CSS, Supabase (PostgreSQL database), Gamilab SDK (real-time WebSocket), Lucide React (icons), PostHog (analytics).',
     aboutAudiogami: 'About Audiogami',
-    aboutAudiogamiBody: 'Audiogami is a project developed by Memoways that explores the applications of artificial intelligence applied to voice. The Gamilab API, at the heart of this demonstrator, enables the automatic and configurable transformation of audio streams into actionable data.',
+    aboutAudiogamiBody: 'Audiogami is a project developed by Gamilab that explores the applications of artificial intelligence applied to voice. The Gamilab API, at the heart of this demonstrator, enables the automatic and configurable transformation of audio streams into actionable data.\n\nThis demonstrator was developed by Memoways, a Gamilab implementation partner.',
     feedbackBtn: 'Give feedback / get in touch',
     close: 'Close',
   },
@@ -128,7 +128,11 @@ export function InfoModal({ isOpen, onClose }: InfoModalProps) {
 
           <section>
             <h3 className="text-base font-semibold text-charcoal font-grotesk mb-2">{t.aboutAudiogami}</h3>
-            <p className="text-sm text-slate leading-relaxed">{t.aboutAudiogamiBody}</p>
+            <div className="space-y-2">
+              {t.aboutAudiogamiBody.split('\n\n').map((para, i) => (
+                <p key={i} className="text-sm text-slate leading-relaxed">{para}</p>
+              ))}
+            </div>
           </section>
         </div>
 
