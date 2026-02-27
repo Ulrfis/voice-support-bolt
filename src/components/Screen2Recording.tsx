@@ -68,7 +68,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasResult, setHasResult] = useState(false);
-  const [passCount, setPassCount] = useState(initialData ? 1 : 0);
+  const [passCount, setPassCount] = useState(0);
   const [transcript, setTranscript] = useState(existingTranscript || '');
   const [liveText, setLiveText] = useState('');
   const [structData, setStructData] = useState<Partial<Ticket>>(initialData || {});
@@ -148,7 +148,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       if (!mountedRef.current) return;
       const mapped = mapStructToTicket(data as Record<string, unknown>);
       if (Object.keys(mapped).length > 0) {
-        setStructData(mapped);
+        setStructData(prev => ({ ...prev, ...mapped }));
       }
     }));
 

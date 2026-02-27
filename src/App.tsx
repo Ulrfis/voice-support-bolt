@@ -154,7 +154,13 @@ function AppContent() {
             initialData={ticketData && Object.keys(ticketData).length > 0 ? ticketData : undefined}
             existingTranscript={transcript || undefined}
             onComplete={handleRecordingComplete}
-            onBack={handleBackToHome}
+            onBack={() => {
+              if (createdTicket) {
+                setCurrentScreen('hitl');
+              } else {
+                handleBackToHome();
+              }
+            }}
           />
         )}
 

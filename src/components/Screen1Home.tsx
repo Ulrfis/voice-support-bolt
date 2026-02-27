@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
 import type { UseCaseId } from '../types';
@@ -6,8 +7,20 @@ interface Screen1HomeProps {
   onSelectUseCase: (useCaseId: UseCaseId) => void;
 }
 
+const disclaimer = {
+  label: {
+    fr: 'Application de demonstration',
+    en: 'Demo application',
+  },
+  body: {
+    fr: 'Cette application est une demo technique. Les cas d\'usage presentes sont fictifs. Son seul objectif est de montrer comment une transcription vocale peut etre automatiquement transformee en donnees structurees grace a l\'API Gamilab d\'Audiogami.',
+    en: 'This application is a technical demo. The use cases shown are fictional. Its sole purpose is to demonstrate how a voice transcription can be automatically transformed into structured data using the Gamilab API by Audiogami.',
+  },
+};
+
 export function Screen1Home({ onSelectUseCase }: Screen1HomeProps) {
   const { language, t } = useLanguage();
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
@@ -18,6 +31,33 @@ export function Screen1Home({ onSelectUseCase }: Screen1HomeProps) {
         <p className="text-xl text-slate mb-8">
           {t('appSubtitle')}
         </p>
+
+        <button
+          onClick={() => setDisclaimerOpen(!disclaimerOpen)}
+          className="inline-flex items-center gap-1.5 text-xs text-slate hover:text-charcoal transition-colors mb-6"
+        >
+          <svg
+            className={`w-3.5 h-3.5 transition-transform duration-200 ${disclaimerOpen ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <span className="font-medium">{disclaimer.label[language]}</span>
+        </button>
+
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            disclaimerOpen ? 'max-h-40 opacity-100 mb-6' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="max-w-2xl mx-auto bg-off-white border border-light-gray rounded-lg px-5 py-4">
+            <p className="text-sm text-slate leading-relaxed">
+              {disclaimer.body[language]}
+            </p>
+          </div>
+        </div>
 
         <div className="inline-flex flex-col sm:flex-row items-center gap-3 sm:gap-6 bg-off-white border border-light-gray px-6 sm:px-8 py-4 rounded-xl shadow-sm w-full sm:w-auto max-w-sm sm:max-w-none mx-auto">
           <div className="flex items-center gap-2.5">
