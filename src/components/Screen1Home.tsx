@@ -9,12 +9,12 @@ interface Screen1HomeProps {
 
 const disclaimer = {
   label: {
-    fr: 'Application de demonstration',
-    en: 'Demo application',
+    fr: 'Avertissement : il s\'agit d\'une application de d\u00e9monstration \u2014 cliquez pour en savoir plus',
+    en: 'Disclaimer: this is a demo application \u2014 click to learn more',
   },
   body: {
-    fr: 'Cette application est une demo technique. Les cas d\'usage presentes sont fictifs. Son seul objectif est de montrer comment une transcription vocale peut etre automatiquement transformee en donnees structurees grace a l\'API Gamilab d\'Audiogami.',
-    en: 'This application is a technical demo. The use cases shown are fictional. Its sole purpose is to demonstrate how a voice transcription can be automatically transformed into structured data using the Gamilab API by Audiogami.',
+    fr: 'Cette application est une d\u00e9mo technique. Les cas d\'usage pr\u00e9sent\u00e9s sont fictifs. Son seul objectif est de montrer comment une transcription vocale peut \u00eatre automatiquement transform\u00e9e en donn\u00e9es structur\u00e9es gr\u00e2ce \u00e0 l\'API Gamilab.',
+    en: 'This application is a technical demo. The use cases shown are fictional. Its sole purpose is to demonstrate how a voice transcription can be automatically transformed into structured data using the Gamilab API.',
   },
 };
 
@@ -34,17 +34,17 @@ export function Screen1Home({ onSelectUseCase }: Screen1HomeProps) {
 
         <button
           onClick={() => setDisclaimerOpen(!disclaimerOpen)}
-          className="inline-flex items-center gap-1.5 text-xs text-slate hover:text-charcoal transition-colors mb-6"
+          className="inline-flex items-center gap-2 bg-spicy-sweetcorn bg-opacity-15 border border-spicy-sweetcorn border-opacity-40 text-spicy-sweetcorn rounded-full px-5 py-2.5 text-sm font-semibold hover:bg-opacity-25 transition-all duration-200 mb-6"
         >
           <svg
-            className={`w-3.5 h-3.5 transition-transform duration-200 ${disclaimerOpen ? 'rotate-90' : ''}`}
+            className={`w-4 h-4 shrink-0 transition-transform duration-200 ${disclaimerOpen ? 'rotate-90' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
           </svg>
-          <span className="font-medium">{disclaimer.label[language]}</span>
+          <span>{disclaimer.label[language]}</span>
         </button>
 
         <div
@@ -52,8 +52,8 @@ export function Screen1Home({ onSelectUseCase }: Screen1HomeProps) {
             disclaimerOpen ? 'max-h-40 opacity-100 mb-6' : 'max-h-0 opacity-0'
           }`}
         >
-          <div className="max-w-2xl mx-auto bg-off-white border border-light-gray rounded-lg px-5 py-4">
-            <p className="text-sm text-slate leading-relaxed">
+          <div className="max-w-2xl mx-auto bg-spicy-sweetcorn bg-opacity-10 border border-spicy-sweetcorn border-opacity-30 rounded-lg px-5 py-4">
+            <p className="text-sm text-charcoal leading-relaxed">
               {disclaimer.body[language]}
             </p>
           </div>
