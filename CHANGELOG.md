@@ -6,6 +6,20 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.3.3] - 2026-02-27
+
+### Corrigé
+- **Accents français** : correction complète de tous les textes français dans `InfoModal.tsx` — ajout des accents manquants (é, è, ê, à, â, î, ô, ù, œ, ç) sur l'ensemble du contenu FR
+  - "À propos" (au lieu de "A propos")
+  - "développé" (au lieu de "developpe")
+  - "données" (au lieu de "donnees")
+  - "réel" (au lieu de "reel")
+  - "grâce" (au lieu de "grace")
+  - "Comment ça marche" (au lieu de "Comment ca marche")
+  - Et ~30 autres corrections d'accentuation
+
+---
+
 ## [0.3.2] - 2026-02-19
 
 ### Corrigé

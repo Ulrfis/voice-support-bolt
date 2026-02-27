@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-19 (v0.3.2)
+> **Last Updated**: 2026-02-27 (v0.3.3)
 
 ---
 
@@ -306,6 +306,28 @@
 **Resolution**: Lecture directe de la doc SDK (`SDK_doc_Gamilab.md`) et application stricte : si le SDK le fait, on ne le refait pas côté app.
 
 **Time**: ~10 min
+
+---
+
+### 2026-02-27 — Correction Accents Français 🔹
+
+**Intent**: Corriger tous les accents manquants dans les textes français de l'interface utilisateur.
+
+**Prompt(s)**:
+> "Il faut ajouter les accents en français ! Là c'est pas du tout correct !!"
+
+**Tool**: Claude (Sonnet 4.5)
+
+**Outcome**:
+- Correction complète de tous les textes français dans `InfoModal.tsx` (section `content.fr`)
+- ~30 corrections d'accentuation : é, è, ê, à, â, î, ô, ù, œ, ç
+- Exemples : "À propos", "développé", "données", "réel", "grâce", "Comment ça marche", "Vérifiez", "enregistré", "prêt", "métier", "scénarios", "démonstration", "Développeur", "icônes", "cœur", "démonstrateur", "implémentation"
+- Mise à jour de README (version → 0.3.3), CHANGELOG (ajout v0.3.3), STORY (last updated)
+- Build propre
+
+**Surprise**: Aucune — correction de surface, aucune logique métier touchée.
+
+**Time**: ~3 min
 
 ---
 
