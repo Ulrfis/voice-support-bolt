@@ -55,8 +55,10 @@ export interface UseCase {
   name: { fr: string; en: string };
   context: { fr: string; en: string };
   questions: { fr: string[]; en: string[] };
+  optionalQuestions: { fr: string[]; en: string[] };
   categories: Category[];
   requiredFields: string[];
+  optionalFields: string[];
   articles: { fr: string[]; en: string[] };
 }
 

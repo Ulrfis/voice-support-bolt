@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
-import { loadAndInitSDK, connectGami, PORTAL_IDS, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
+import { loadAndInitSDK, connectGami, getPortalId, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
+import { getFieldStatus, type FieldStatus } from '../lib/fieldValidation';
 import type { UseCaseId, Ticket } from '../types';
 
 interface Screen2RecordingProps {
@@ -27,13 +28,6 @@ const INIT_PHASE_LABELS: Record<InitPhase, { fr: string; en: string }> = {
 
 const EXTRACTION_TIMEOUT_MS = 8000;
 
-const QUESTION_FIELD_MAP: Record<UseCaseId, string[]> = {
-  it_support: ['device', 'symptoms', 'frequency'],
-  ecommerce: ['order_number', 'problem_type', 'product_description'],
-  saas: ['feature', 'symptoms', 'impact'],
-  dev_portal: ['request_type', 'description', 'urgency'],
-};
-
 const FIELD_LABELS: Record<string, { fr: string; en: string }> = {
   device: { fr: 'Appareil', en: 'Device' },
   symptoms: { fr: 'Symptômes', en: 'Symptoms' },
@@ -57,7 +51,7 @@ const FIELD_LABELS: Record<string, { fr: string; en: string }> = {
   ideas_needs: { fr: 'Idées / Besoins', en: 'Ideas / Needs' },
 };
 
-const EXCLUDED_DISPLAY_KEYS = new Set(['use_case', 'language', 'status', 'tags', 'priority', 'id', 'created_at', 'raw_transcript', 'email']);
+const EXCLUDED_DISPLAY_KEYS = new Set(['use_case', 'language', 'status', 'tags', 'priority', 'id', 'created_at', 'raw_transcript', 'email', 'category']);
 
 export function Screen2Recording({ useCaseId, initialData, existingTranscript, onComplete, onBack }: Screen2RecordingProps) {
   const { language, t } = useLanguage();
@@ -78,17 +72,36 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   const gamiRef = useRef<GamiSDK | null>(null);
   const eventRefsRef = useRef<symbol[]>([]);
   const finalizingRef = useRef(false);
+  const finalizedRef = useRef(false);
   const isStoppingRef = useRef(false);
   const extractionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const initAbortRef = useRef<AbortController | null>(null);
 
+  const requiredFields = useCase?.requiredFields || [];
+  const optionalFields = useCase?.optionalFields || [];
+  const allQuestionFields = [...requiredFields, ...optionalFields];
+  const totalQuestions = allQuestionFields.length;
+
   const getFieldLabel = (fieldName: string) =>
     FIELD_LABELS[fieldName]?.[language] || fieldName;
 
+  const getFieldValue = (fieldName: string): string | undefined => {
+    const rawValue = structData[fieldName as keyof Ticket];
+    if (rawValue === undefined || rawValue === null) return undefined;
+    return Array.isArray(rawValue) ? rawValue.join(', ') : String(rawValue);
+  };
+
+  const getFieldStatusForQuestion = (fieldName: string): FieldStatus => {
+    return getFieldStatus(fieldName, structData[fieldName as keyof Ticket], useCaseId);
+  };
+
+  const sufficientCount = allQuestionFields.filter(f => getFieldStatusForQuestion(f) === 'sufficient').length;
+  const requiredSufficientCount = requiredFields.filter(f => getFieldStatusForQuestion(f) === 'sufficient').length;
+  const allRequiredSufficient = requiredSufficientCount === requiredFields.length;
+
   const getMissingRequiredFields = () => {
-    if (!useCase) return [];
-    return useCase.requiredFields.filter(f => !structData[f as keyof Ticket]);
+    return requiredFields.filter(f => getFieldStatusForQuestion(f) !== 'sufficient');
   };
 
   const getMissingFieldsPrompt = () => {
@@ -101,6 +114,8 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   };
 
   const finalizeExtraction = useCallback(() => {
+    if (finalizedRef.current) return;
+    finalizedRef.current = true;
     console.log('[Gamilab] finalizeExtraction() called');
     if (extractionTimeoutRef.current) {
       clearTimeout(extractionTimeoutRef.current);
@@ -115,9 +130,8 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   }, []);
 
   const registerEvents = useCallback((gami: GamiSDK) => {
-    const oldGami = gamiRef.current;
-    if (oldGami && eventRefsRef.current.length > 0) {
-      eventRefsRef.current.forEach(ref => oldGami.off(ref));
+    if (eventRefsRef.current.length > 0) {
+      eventRefsRef.current.forEach(ref => gami.off(ref));
       eventRefsRef.current = [];
     }
 
@@ -161,8 +175,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
     }));
 
     eventRefsRef.current = refs;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [finalizeExtraction]);
 
   const initSessionRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -184,7 +197,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       await connectGami('gamilab.ch', gami);
       if (abort.signal.aborted || !mountedRef.current) return;
 
-      const portalId = PORTAL_IDS[useCaseId];
+      const portalId = getPortalId(useCaseId, language);
       setInitPhase('joining_portal');
       await gami.use_portal(portalId);
       if (abort.signal.aborted || !mountedRef.current) return;
@@ -205,7 +218,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       setInitPhase('error');
       setInitError(err instanceof Error ? err.message : String(err));
     }
-  }, [useCaseId, registerEvents]);
+  }, [useCaseId, language, registerEvents]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -229,6 +242,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
     if (!gamiRef.current) return;
     setHasResult(false);
     finalizingRef.current = false;
+    finalizedRef.current = false;
     isStoppingRef.current = false;
     try {
       if (passCount === 0) {
@@ -247,6 +261,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
     if (!gamiRef.current || isStoppingRef.current) return;
     isStoppingRef.current = true;
     finalizingRef.current = true;
+    finalizedRef.current = false;
     setIsRecording(false);
     setIsProcessing(true);
     try {
@@ -276,17 +291,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
 
   if (!useCase) return <div>Error loading use case</div>;
 
-  const questionFields = QUESTION_FIELD_MAP[useCaseId] || [];
-  const missingFields = getMissingRequiredFields();
-  const extraCapturedFields = Object.entries(structData).filter(([key, value]) => {
-    if (!value || EXCLUDED_DISPLAY_KEYS.has(key)) return false;
-    if (questionFields.includes(key)) return false;
-    return true;
-  });
-
-  const answeredCount = questionFields.filter(f => !!structData[f as keyof Ticket]).length;
-  const totalQuestions = questionFields.length;
-  const targetProgress = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
+  const targetProgress = totalQuestions > 0 ? Math.round((sufficientCount / totalQuestions) * 100) : 0;
 
   useEffect(() => {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
@@ -314,6 +319,14 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   const progress = displayedProgress;
   const progressColor = targetProgress === 100 ? 'bg-spicy-sweetcorn' : 'bg-chunky-bee';
   const isInitializing = initPhase !== 'ready' && initPhase !== 'error';
+
+  const missingRequired = getMissingRequiredFields();
+
+  const extraCapturedFields = Object.entries(structData).filter(([key, value]) => {
+    if (!value || EXCLUDED_DISPLAY_KEYS.has(key)) return false;
+    if (allQuestionFields.includes(key)) return false;
+    return true;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -355,61 +368,62 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
                 {language === 'fr' ? 'Questions clés' : 'Key questions'}
               </h3>
               <span className="text-xs text-slate">
-                {answeredCount}/{questionFields.length} {language === 'fr' ? 'répondues' : 'answered'}
+                {requiredSufficientCount}/{requiredFields.length} {language === 'fr' ? 'répondues' : 'answered'}
               </span>
             </div>
 
             <div className="space-y-2">
               {useCase.questions[language].map((question, index) => {
-                const fieldName = questionFields[index];
-                const rawValue = fieldName ? structData[fieldName as keyof Ticket] : undefined;
-                const fieldValue = rawValue !== undefined && rawValue !== null
-                  ? (Array.isArray(rawValue) ? rawValue.join(', ') : String(rawValue))
-                  : undefined;
-                const hasAnswer = !!fieldValue;
+                const fieldName = requiredFields[index];
+                const fieldValue = fieldName ? getFieldValue(fieldName) : undefined;
+                const status = fieldName ? getFieldStatusForQuestion(fieldName) : 'empty';
 
                 return (
-                  <div
-                    key={index}
-                    className={`rounded-lg border transition-all duration-200 ${
-                      hasAnswer
-                        ? 'border-spicy-sweetcorn border-opacity-50 bg-spicy-sweetcorn bg-opacity-5'
-                        : 'border-light-gray bg-white'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3 px-4 py-3">
-                      <span
-                        className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                          hasAnswer
-                            ? 'bg-spicy-sweetcorn text-white'
-                            : isRecording
-                            ? 'bg-chunky-bee bg-opacity-30 text-chunky-bee border border-chunky-bee border-opacity-40 animate-pulse'
-                            : 'bg-light-gray text-slate'
-                        }`}
-                      >
-                        {hasAnswer ? '✓' : index + 1}
-                      </span>
-                      <span className={`text-sm flex-1 ${hasAnswer ? 'text-charcoal font-medium' : 'text-slate'}`}>
-                        {question}
-                      </span>
-                    </div>
-                    <div
-                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        hasAnswer ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
-                      }`}
-                    >
-                      {hasAnswer && (
-                        <div className="px-4 pb-3 pl-12">
-                          <p className="text-sm text-rockman-blue font-medium leading-relaxed">
-                            {fieldValue}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <QuestionRow
+                    key={fieldName}
+                    index={index}
+                    question={question}
+                    fieldValue={fieldValue}
+                    status={status}
+                    isRecording={isRecording}
+                    language={language}
+                  />
                 );
               })}
             </div>
+
+            {allRequiredSufficient && optionalFields.length > 0 && (
+              <div className="mt-5 pt-4 border-t border-light-gray">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-charcoal text-sm font-grotesk">
+                    {language === 'fr' ? 'Questions complémentaires' : 'Additional questions'}
+                  </h3>
+                  <span className="text-xs text-slate">
+                    {optionalFields.filter(f => getFieldStatusForQuestion(f) === 'sufficient').length}/{optionalFields.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {useCase.optionalQuestions[language].map((question, index) => {
+                    const fieldName = optionalFields[index];
+                    const fieldValue = fieldName ? getFieldValue(fieldName) : undefined;
+                    const status = fieldName ? getFieldStatusForQuestion(fieldName) : 'empty';
+
+                    return (
+                      <QuestionRow
+                        key={fieldName}
+                        index={requiredFields.length + index}
+                        question={question}
+                        fieldValue={fieldValue}
+                        status={status}
+                        isRecording={isRecording}
+                        language={language}
+                        isOptional
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {extraCapturedFields.length > 0 && (
               <div className="mt-4 pt-4 border-t border-light-gray">
@@ -501,13 +515,13 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
 
                 {hasResult && !isRecording && !isProcessing && (
                   <div className="flex flex-col gap-2">
-                    {missingFields.length > 0 && (
+                    {missingRequired.length > 0 && (
                       <div className="bg-chunky-bee bg-opacity-10 border border-chunky-bee border-opacity-30 rounded-lg p-3">
                         <p className="text-xs font-semibold text-charcoal mb-1.5">
                           {t('missingFieldsTitle')} :
                         </p>
                         <div className="flex flex-wrap gap-1">
-                          {missingFields.map(f => (
+                          {missingRequired.map(f => (
                             <span key={f} className="text-xs bg-white border border-light-gray rounded-full px-2 py-0.5 text-charcoal">
                               {getFieldLabel(f)}
                             </span>
@@ -516,7 +530,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
                       </div>
                     )}
 
-                    {missingFields.length === 0 && (
+                    {missingRequired.length === 0 && (
                       <div className="flex items-center gap-2 bg-spicy-sweetcorn bg-opacity-10 border border-spicy-sweetcorn border-opacity-30 rounded-lg p-3">
                         <span className="text-spicy-sweetcorn font-bold text-base">✓</span>
                         <p className="text-xs font-medium text-charcoal">{t('allFieldsCaptured')}</p>
@@ -524,7 +538,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
                     )}
 
                     <div className="flex gap-2 pt-1">
-                      {missingFields.length > 0 && (
+                      {missingRequired.length > 0 && (
                         <button
                           onClick={handleStartRecording}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-off-white border border-light-gray text-charcoal rounded-lg font-medium text-xs hover:bg-light-gray transition-colors"
@@ -536,7 +550,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
                       <button
                         onClick={handleContinue}
                         className={`flex items-center justify-center gap-1.5 px-4 py-2 bg-spicy-sweetcorn text-white rounded-lg font-medium text-sm hover:bg-chunky-bee transition-colors shadow-sm ${
-                          missingFields.length > 0 ? '' : 'w-full'
+                          missingRequired.length > 0 ? '' : 'w-full'
                         }`}
                       >
                         {t('continueToReview')}
@@ -587,6 +601,82 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function QuestionRow({
+  index,
+  question,
+  fieldValue,
+  status,
+  isRecording,
+  language,
+  isOptional,
+}: {
+  index: number;
+  question: string;
+  fieldValue?: string;
+  status: FieldStatus;
+  isRecording: boolean;
+  language: 'fr' | 'en';
+  isOptional?: boolean;
+}) {
+  const isSufficient = status === 'sufficient';
+  const isInsufficient = status === 'insufficient';
+  const hasContent = isSufficient || isInsufficient;
+
+  const borderColor = isSufficient
+    ? 'border-spicy-sweetcorn border-opacity-50 bg-spicy-sweetcorn bg-opacity-5'
+    : isInsufficient
+    ? 'border-chunky-bee border-opacity-50 bg-chunky-bee bg-opacity-5'
+    : 'border-light-gray bg-white';
+
+  const badgeColor = isSufficient
+    ? 'bg-spicy-sweetcorn text-white'
+    : isInsufficient
+    ? 'bg-chunky-bee bg-opacity-60 text-white'
+    : isRecording
+    ? 'bg-chunky-bee bg-opacity-30 text-chunky-bee border border-chunky-bee border-opacity-40 animate-pulse'
+    : 'bg-light-gray text-slate';
+
+  const valueColor = isSufficient ? 'text-rockman-blue' : 'text-chunky-bee';
+
+  return (
+    <div className={`rounded-lg border transition-all duration-200 ${borderColor}`}>
+      <div className="flex items-start gap-3 px-4 py-3">
+        <span className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${badgeColor}`}>
+          {isSufficient ? '✓' : isInsufficient ? '~' : index + 1}
+        </span>
+        <div className="flex-1">
+          <span className={`text-sm ${hasContent ? 'text-charcoal font-medium' : 'text-slate'}`}>
+            {question}
+          </span>
+          {isOptional && !hasContent && (
+            <span className="ml-1.5 text-[10px] text-silver font-medium uppercase">
+              {language === 'fr' ? 'optionnel' : 'optional'}
+            </span>
+          )}
+        </div>
+      </div>
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          hasContent ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        {hasContent && (
+          <div className="px-4 pb-3 pl-12">
+            <p className={`text-sm font-medium leading-relaxed ${valueColor}`}>
+              {fieldValue}
+            </p>
+            {isInsufficient && (
+              <p className="text-[10px] text-chunky-bee mt-1">
+                {language === 'fr' ? 'Réponse incomplète — précisez davantage' : 'Incomplete answer — please elaborate'}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

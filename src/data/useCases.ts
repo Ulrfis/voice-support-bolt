@@ -24,8 +24,19 @@ export const useCases: UseCase[] = [
         'Since when and how frequently?'
       ]
     },
+    optionalQuestions: {
+      fr: [
+        'Dans quel environnement utilisez-vous cet appareil ?',
+        'Quelles actions avez-vous déjà essayées ?'
+      ],
+      en: [
+        'In what environment do you use this device?',
+        'What actions have you already tried?'
+      ]
+    },
     categories: ['hardware', 'software', 'network', 'peripheral', 'other'],
     requiredFields: ['device', 'symptoms', 'frequency'],
+    optionalFields: ['environment', 'actions_tried'],
     articles: {
       fr: [
         'Comment mettre à jour vos drivers graphiques',
@@ -62,8 +73,19 @@ export const useCases: UseCase[] = [
         'Which product is affected by this order?'
       ]
     },
+    optionalQuestions: {
+      fr: [
+        'Quel est le statut actuel de la livraison ?',
+        'Quelle résolution souhaitez-vous ?'
+      ],
+      en: [
+        'What is the current delivery status?',
+        'What resolution would you like?'
+      ]
+    },
     categories: ['delivery', 'product_defect', 'wrong_item', 'refund', 'other'],
     requiredFields: ['order_number', 'problem_type', 'product_description'],
+    optionalFields: ['delivery_status', 'desired_resolution'],
     articles: {
       fr: [
         'Suivre ma commande et signaler un problème de livraison',
@@ -100,8 +122,19 @@ export const useCases: UseCase[] = [
         'What is the impact on your work?'
       ]
     },
+    optionalQuestions: {
+      fr: [
+        'Dans quel environnement ou navigateur ?',
+        'Quelles étapes permettent de reproduire le problème ?'
+      ],
+      en: [
+        'In which environment or browser?',
+        'What steps reproduce the problem?'
+      ]
+    },
     categories: ['bug', 'feature_request', 'access_issue', 'performance', 'other'],
     requiredFields: ['feature', 'symptoms', 'impact'],
+    optionalFields: ['environment', 'steps_to_reproduce'],
     articles: {
       fr: [
         'Résoudre les problèmes d\'export PDF',
@@ -138,8 +171,19 @@ export const useCases: UseCase[] = [
         'What is the urgency for you?'
       ]
     },
+    optionalQuestions: {
+      fr: [
+        'Dans quel contexte cela se produit-il ?',
+        'Quel comportement attendiez-vous ?'
+      ],
+      en: [
+        'In what context does this occur?',
+        'What behavior did you expect?'
+      ]
+    },
     categories: ['bug', 'enhancement', 'new_feature', 'documentation', 'other'],
     requiredFields: ['request_type', 'description', 'urgency'],
+    optionalFields: ['context', 'expected_behavior'],
     articles: {
       fr: [
         'Guide de démarrage API',

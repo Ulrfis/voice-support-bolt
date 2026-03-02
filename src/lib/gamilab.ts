@@ -1,4 +1,4 @@
-import type { UseCaseId, Ticket, Priority, Category, Tag } from '../types';
+import type { UseCaseId, Language, Ticket, Priority, Category, Tag } from '../types';
 
 export interface GamiSDK {
   connect: (host: string) => Promise<void>;
@@ -18,6 +18,8 @@ const DEFAULT_SDK_URL = 'https://gamilab.ch/js/sdk.js';
 const SDK_SCRIPT_ID = 'gamilab-sdk-script';
 
 let _sdkPromise: Promise<GamiSDK> | null = null;
+let _sdkInstance: GamiSDK | null = null;
+let _connected = false;
 
 function getSDKUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_SDK_URL;
@@ -26,13 +28,22 @@ function getSDKUrl(): string {
 }
 
 export function loadAndInitSDK(): Promise<GamiSDK> {
+  if (_sdkInstance) return Promise.resolve(_sdkInstance);
   if (_sdkPromise) return _sdkPromise;
 
   _sdkPromise = new Promise<GamiSDK>((resolve, reject) => {
     window.addEventListener('gami:init', (evt: Event) => {
       const e = evt as CustomEvent<{ Gami: () => GamiSDK }>;
-      resolve(e.detail.Gami());
+      _sdkInstance = e.detail.Gami();
+      resolve(_sdkInstance);
     }, { once: true });
+
+    const existing = document.getElementById(SDK_SCRIPT_ID);
+    if (existing) {
+      _sdkPromise = null;
+      reject(new Error('SDK script already in DOM but instance not available'));
+      return;
+    }
 
     const script = document.createElement('script');
     script.id = SDK_SCRIPT_ID;
@@ -49,15 +60,29 @@ export function loadAndInitSDK(): Promise<GamiSDK> {
 }
 
 export async function connectGami(host: string, gami: GamiSDK): Promise<void> {
+  if (_connected) return;
   await gami.connect(host);
+  _connected = true;
 }
 
-export const PORTAL_IDS: Record<UseCaseId, string> = {
-  it_support: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT,
-  ecommerce: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE,
-  saas: import.meta.env.VITE_GAMILAB_PORTAL_SAAS,
-  dev_portal: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL,
+const PORTAL_IDS_BY_LANG: Record<Language, Record<UseCaseId, string>> = {
+  fr: {
+    it_support: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT,
+    ecommerce: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE,
+    saas: import.meta.env.VITE_GAMILAB_PORTAL_SAAS,
+    dev_portal: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL,
+  },
+  en: {
+    it_support: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_EN,
+    ecommerce: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_EN,
+    saas: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_EN,
+    dev_portal: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_EN,
+  },
 };
+
+export function getPortalId(useCaseId: UseCaseId, lang: Language): string {
+  return PORTAL_IDS_BY_LANG[lang]?.[useCaseId] || PORTAL_IDS_BY_LANG.fr[useCaseId];
+}
 
 const validPriorities: Priority[] = ['critical', 'high', 'medium', 'low'];
 const validTags: Tag[] = ['urgent', 'recurring', 'first_contact', 'escalation', 'vip_customer', 'workaround_available'];
