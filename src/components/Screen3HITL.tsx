@@ -201,7 +201,7 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
             )}
             <button
               onClick={() => setShowTranscript(!showTranscript)}
-              className="text-xs text-rockman-blue hover:text-joust-blue font-medium transition-colors flex items-center gap-1"
+              className="text-sm font-semibold text-rockman-blue hover:text-joust-blue transition-colors flex items-center gap-1.5 px-3 py-1.5 border border-rockman-blue border-opacity-30 rounded-md hover:bg-rockman-blue hover:bg-opacity-5"
             >
               {showTranscript ? '▼' : '▶'} {language === 'fr' ? 'Transcript' : 'Transcript'}
             </button>
@@ -303,26 +303,7 @@ export function Screen3HITL({ useCaseId, initialData, transcript, ticketId, onVa
           </div>
         </div>
 
-        {!allRequiredFieldsComplete && (
-          <div className="mb-3 flex items-start gap-2 bg-chunky-bee bg-opacity-10 border border-chunky-bee border-opacity-30 rounded-lg p-3">
-            <span className="text-chunky-bee shrink-0 mt-0.5">🎤</span>
-            <p className="text-xs text-charcoal">
-              {language === 'fr'
-                ? 'Certains champs sont manquants. Vous pouvez les compléter ici ou revenir à l\'enregistrement pour les dicter à voix haute.'
-                : 'Some fields are missing. You can fill them here or go back to recording to dictate them aloud.'}
-            </p>
-          </div>
-        )}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => onBack(formData)}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-off-white border border-light-gray text-charcoal rounded hover:bg-light-gray font-medium transition-colors text-sm sm:shrink-0"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-            {language === 'fr' ? 'Dicter à la voix' : 'Dictate by voice'}
-          </button>
+        <div className="flex gap-3">
           <button
             onClick={() => onValidate({ ...formData, raw_transcript: transcript })}
             disabled={!allRequiredFieldsComplete}
