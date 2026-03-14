@@ -86,18 +86,18 @@ export function loadAndInitSDK(): Promise<GamiSDK> {
   if (_sdkPromise) return _sdkPromise;
 
   _sdkPromise = new Promise<GamiSDK>((resolve, reject) => {
-    window.addEventListener('gami:init', (evt: Event) => {
+    const handleInit = (evt: Event) => {
       const e = evt as CustomEvent<{ Gami: () => GamiSDK }>;
       const raw = e.detail.Gami();
       _sdkInstance = wrapSDK(raw);
       pushLog('system', 'lifecycle', 'SDK initialized', _debugEnabled ? 'with instrumentation' : 'raw');
       resolve(_sdkInstance);
-    }, { once: true });
+    };
+
+    window.addEventListener('gami:init', handleInit, { once: true });
 
     const existing = document.getElementById(SDK_SCRIPT_ID);
     if (existing) {
-      _sdkPromise = null;
-      reject(new Error('SDK script already in DOM but instance not available'));
       return;
     }
 
@@ -106,6 +106,7 @@ export function loadAndInitSDK(): Promise<GamiSDK> {
     script.src = getSDKUrl();
     script.defer = true;
     script.onerror = () => {
+      window.removeEventListener('gami:init', handleInit);
       _sdkPromise = null;
       reject(new Error('Failed to load Gamilab SDK'));
     };
@@ -143,10 +144,8 @@ export function initSession(
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('connecting');
-        if (!_connected) {
-          await gami.connect('gamilab.ch');
-          _connected = true;
-        }
+        await gami.connect('gamilab.ch');
+        _connected = true;
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         const portalId = getPortalId(useCaseId, lang);

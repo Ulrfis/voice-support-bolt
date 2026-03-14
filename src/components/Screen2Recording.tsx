@@ -60,6 +60,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   const [initPhase, setInitPhase] = useState<InitPhase>('idle');
   const [initError, setInitError] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasResult, setHasResult] = useState(false);
   const [passCount, setPassCount] = useState(0);
@@ -230,7 +231,8 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   }, [useCaseId]);
 
   const handleStartRecording = async () => {
-    if (!gamiRef.current) return;
+    if (!gamiRef.current || isStarting || isRecording) return;
+    setIsStarting(true);
     setHasResult(false);
     finalizingRef.current = false;
     finalizedRef.current = false;
@@ -245,6 +247,8 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       console.error('[Gamilab] Recording start error:', err);
       setInitPhase('error');
       setInitError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -471,9 +475,14 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
                 {!isRecording && !isProcessing && !hasResult && (
                   <button
                     onClick={handleStartRecording}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rockman-blue text-white rounded-lg font-medium text-sm hover:bg-joust-blue transition-colors shadow-sm"
+                    disabled={isStarting}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rockman-blue text-white rounded-lg font-medium text-sm hover:bg-joust-blue transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <MicIcon className="w-4 h-4" />
+                    {isStarting ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <MicIcon className="w-4 h-4" />
+                    )}
                     {passCount === 0 ? t('startRecording') : t('resumeRecording')}
                   </button>
                 )}
