@@ -19,6 +19,7 @@ const SDK_SCRIPT_ID = 'gamilab-sdk-script';
 
 let _sdkPromise: Promise<GamiSDK> | null = null;
 let _sdkInstance: GamiSDK | null = null;
+let _connected = false;
 let _initChain: Promise<void> = Promise.resolve();
 let _currentSessionId = 0;
 
@@ -88,10 +89,10 @@ export function initSession(
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('connecting');
-        try {
-          await gami.disconnect();
-        } catch { /* may not be connected yet */ }
-        await gami.connect('gamilab.ch');
+        if (!_connected) {
+          await gami.connect('gamilab.ch');
+          _connected = true;
+        }
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         const portalId = getPortalId(useCaseId, lang);
