@@ -19,6 +19,7 @@ const SDK_SCRIPT_ID = 'gamilab-sdk-script';
 
 let _sdkPromise: Promise<GamiSDK> | null = null;
 let _sdkInstance: GamiSDK | null = null;
+let _connected = false;
 
 function getSDKUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_SDK_URL;
@@ -59,7 +60,22 @@ export function loadAndInitSDK(): Promise<GamiSDK> {
 }
 
 export async function connectGami(host: string, gami: GamiSDK): Promise<void> {
-  await gami.connect(host);
+  if (_connected) return;
+  try {
+    await gami.connect(host);
+    _connected = true;
+  } catch {
+    try {
+      await gami.disconnect();
+    } catch { /* ignore disconnect errors */ }
+    _connected = false;
+    await gami.connect(host);
+    _connected = true;
+  }
+}
+
+export function resetConnectionState(): void {
+  _connected = false;
 }
 
 const PORTAL_IDS_BY_LANG: Record<Language, Record<UseCaseId, string>> = {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
-import { loadAndInitSDK, connectGami, getPortalId, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
+import { loadAndInitSDK, connectGami, getPortalId, mapStructToTicket, resetConnectionState, type GamiSDK } from '../lib/gamilab';
 import { getFieldStatus, type FieldStatus } from '../lib/fieldValidation';
 import type { UseCaseId, Ticket } from '../types';
 
@@ -230,9 +230,13 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       const gami = gamiRef.current;
-      if (gami && eventRefsRef.current.length > 0) {
-        eventRefsRef.current.forEach(ref => gami.off(ref));
-        eventRefsRef.current = [];
+      if (gami) {
+        if (eventRefsRef.current.length > 0) {
+          eventRefsRef.current.forEach(ref => gami.off(ref));
+          eventRefsRef.current = [];
+        }
+        gami.disconnect().catch(() => {});
+        resetConnectionState();
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -282,6 +286,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   const handleRetry = () => {
     setInitPhase('idle');
     setInitError('');
+    resetConnectionState();
     initSessionRef.current?.();
   };
 
