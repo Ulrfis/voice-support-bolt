@@ -1,4 +1,5 @@
 import type { UseCaseId, Language, Ticket, Priority, Category, Tag } from '../types';
+import { pushLog } from './debugLog';
 
 export interface GamiSDK {
   connect: (host: string) => Promise<void>;
@@ -29,6 +30,59 @@ function getSDKUrl(): string {
   return params.get('sdk') || DEFAULT_SDK_URL;
 }
 
+const _debugEnabled = new URLSearchParams(window.location.search).has('debug');
+
+function wrapSDK(raw: GamiSDK): GamiSDK {
+  if (!_debugEnabled) return raw;
+
+  const wrapAsync = <T>(name: string, fn: (...a: unknown[]) => Promise<T>) =>
+    async (...args: unknown[]): Promise<T> => {
+      pushLog('out', 'sdk-call', name, args.length ? args : undefined);
+      try {
+        const result = await fn(...args);
+        pushLog('in', 'sdk-call', `${name} OK`, result ?? undefined);
+        return result;
+      } catch (err) {
+        pushLog('error', 'sdk-call', `${name} FAIL`, err);
+        throw err;
+      }
+    };
+
+  const originalOn = raw.on.bind(raw);
+  const wrappedOn = (evt: string, cb: (...args: unknown[]) => void): symbol => {
+    pushLog('out', 'sdk-event', `on("${evt}")`, 'registering');
+    const wrappedCb = (...args: unknown[]) => {
+      pushLog('in', 'sdk-event', evt, args.length === 1 ? args[0] : args);
+      cb(...args);
+    };
+    return originalOn(evt, wrappedCb);
+  };
+
+  const originalOff = raw.off.bind(raw);
+  const wrappedOff = (ref: symbol): void => {
+    pushLog('out', 'sdk-event', 'off', String(ref));
+    originalOff(ref);
+  };
+
+  return {
+    connect: wrapAsync('connect', raw.connect.bind(raw)) as GamiSDK['connect'],
+    disconnect: wrapAsync('disconnect', raw.disconnect.bind(raw)),
+    use_portal: wrapAsync('use_portal', raw.use_portal.bind(raw)) as GamiSDK['use_portal'],
+    create_thread: wrapAsync('create_thread', raw.create_thread.bind(raw)),
+    start_recording: wrapAsync('start_recording', raw.start_recording.bind(raw)),
+    pause_recording: wrapAsync('pause_recording', raw.pause_recording.bind(raw)),
+    toggle_recording: wrapAsync('toggle_recording', raw.toggle_recording.bind(raw)),
+    resume_recording: wrapAsync('resume_recording', raw.resume_recording.bind(raw)),
+    is_recording: () => {
+      const val = raw.is_recording();
+      pushLog('out', 'sdk-call', 'is_recording', val);
+      return val;
+    },
+    on: wrappedOn,
+    off: wrappedOff,
+  };
+}
+
 export function loadAndInitSDK(): Promise<GamiSDK> {
   if (_sdkInstance) return Promise.resolve(_sdkInstance);
   if (_sdkPromise) return _sdkPromise;
@@ -36,7 +90,9 @@ export function loadAndInitSDK(): Promise<GamiSDK> {
   _sdkPromise = new Promise<GamiSDK>((resolve, reject) => {
     window.addEventListener('gami:init', (evt: Event) => {
       const e = evt as CustomEvent<{ Gami: () => GamiSDK }>;
-      _sdkInstance = e.detail.Gami();
+      const raw = e.detail.Gami();
+      _sdkInstance = wrapSDK(raw);
+      pushLog('system', 'lifecycle', 'SDK initialized', _debugEnabled ? 'with instrumentation' : 'raw');
       resolve(_sdkInstance);
     }, { once: true });
 

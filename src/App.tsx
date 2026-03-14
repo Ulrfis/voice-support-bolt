@@ -11,7 +11,7 @@ import { InfoModal } from './components/InfoModal';
 import { supabase } from './lib/supabase';
 import type { UseCaseId, Ticket } from './types';
 
-const DEBUG_MODE = new URLSearchParams(window.location.search).has('debug-panel');
+const DEBUG_MODE = new URLSearchParams(window.location.search).has('debug');
 
 type Screen = 'home' | 'recording' | 'hitl' | 'confirmation' | 'backoffice';
 
@@ -119,7 +119,7 @@ function AppContent() {
   };
 
   return (
-    <div className={`min-h-screen bg-white transition-all duration-300 ${DEBUG_MODE ? 'lg:pr-[380px]' : ''}`}>
+    <div className={`min-h-screen bg-white transition-all duration-300 ${DEBUG_MODE ? 'lg:pr-[420px]' : ''}`}>
       {DEBUG_MODE && <DebugPanel />}
       {currentScreen !== 'backoffice' && (
         <header className="bg-white sticky top-0 z-10 shadow-sm">
