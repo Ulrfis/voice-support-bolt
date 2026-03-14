@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCases } from '../data/useCases';
-import { loadAndInitSDK, connectGami, getPortalId, mapStructToTicket, resetConnectionState, type GamiSDK } from '../lib/gamilab';
+import { initSession, invalidateSession, mapStructToTicket, type GamiSDK } from '../lib/gamilab';
 import { getFieldStatus, type FieldStatus } from '../lib/fieldValidation';
 import type { UseCaseId, Ticket } from '../types';
 
@@ -76,7 +76,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   const isStoppingRef = useRef(false);
   const extractionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
-  const initAbortRef = useRef<AbortController | null>(null);
+  const cancelSessionRef = useRef<(() => void) | null>(null);
 
   const requiredFields = useCase?.requiredFields || [];
   const optionalFields = useCase?.optionalFields || [];
@@ -177,66 +177,53 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
     eventRefsRef.current = refs;
   }, [finalizeExtraction]);
 
-  const initSessionRef = useRef<(() => Promise<void>) | null>(null);
-
-  initSessionRef.current = useCallback(async () => {
-    if (initAbortRef.current) {
-      initAbortRef.current.abort();
+  const startSession = useCallback(() => {
+    if (cancelSessionRef.current) {
+      cancelSessionRef.current();
+      cancelSessionRef.current = null;
     }
-    const abort = new AbortController();
-    initAbortRef.current = abort;
 
-    try {
-      setInitPhase('loading_sdk');
-      setInitError('');
+    setInitPhase('idle');
+    setInitError('');
 
-      const gami = await loadAndInitSDK();
-      if (abort.signal.aborted || !mountedRef.current) return;
+    const { promise, cancel } = initSession(useCaseId, language, (phase) => {
+      if (mountedRef.current) setInitPhase(phase as InitPhase);
+    });
 
-      setInitPhase('connecting');
-      await connectGami('gamilab.ch', gami);
-      if (abort.signal.aborted || !mountedRef.current) return;
+    cancelSessionRef.current = cancel;
 
-      const portalId = getPortalId(useCaseId, language);
-      setInitPhase('joining_portal');
-      await gami.use_portal(portalId);
-      if (abort.signal.aborted || !mountedRef.current) return;
-
-      setInitPhase('registering_events');
-      gamiRef.current = gami;
-      registerEvents(gami);
-
-      setInitPhase('creating_thread');
-      const threadInfo = await gami.create_thread();
-      console.log('[Gamilab] thread →', threadInfo.thread_id);
-      if (abort.signal.aborted || !mountedRef.current) return;
-
-      setInitPhase('ready');
-    } catch (err) {
-      if (abort.signal.aborted || !mountedRef.current) return;
-      console.error('[Gamilab] Init error:', err);
-      setInitPhase('error');
-      setInitError(err instanceof Error ? err.message : String(err));
-    }
+    promise
+      .then((handle) => {
+        if (!mountedRef.current || handle.isStale()) return;
+        gamiRef.current = handle.gami;
+        registerEvents(handle.gami);
+      })
+      .catch((err) => {
+        if (!mountedRef.current) return;
+        if (err instanceof Error && err.message === 'cancelled') return;
+        console.error('[Gamilab] Init error:', err);
+        setInitPhase('error');
+        setInitError(err instanceof Error ? err.message : String(err));
+      });
   }, [useCaseId, language, registerEvents]);
 
   useEffect(() => {
     mountedRef.current = true;
-    initSessionRef.current?.();
+    startSession();
 
     return () => {
       mountedRef.current = false;
-      if (initAbortRef.current) initAbortRef.current.abort();
+      if (cancelSessionRef.current) {
+        cancelSessionRef.current();
+        cancelSessionRef.current = null;
+      }
+      invalidateSession();
       if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       const gami = gamiRef.current;
-      if (gami) {
-        if (eventRefsRef.current.length > 0) {
-          eventRefsRef.current.forEach(ref => gami.off(ref));
-          eventRefsRef.current = [];
-        }
-        gami.disconnect().catch(() => {});
-        resetConnectionState();
+      if (gami && eventRefsRef.current.length > 0) {
+        eventRefsRef.current.forEach(ref => gami.off(ref));
+        eventRefsRef.current = [];
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -284,10 +271,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   };
 
   const handleRetry = () => {
-    setInitPhase('idle');
-    setInitError('');
-    resetConnectionState();
-    initSessionRef.current?.();
+    startSession();
   };
 
   const handleContinue = () => {

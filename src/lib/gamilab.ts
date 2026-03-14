@@ -19,7 +19,8 @@ const SDK_SCRIPT_ID = 'gamilab-sdk-script';
 
 let _sdkPromise: Promise<GamiSDK> | null = null;
 let _sdkInstance: GamiSDK | null = null;
-let _connected = false;
+let _initChain: Promise<void> = Promise.resolve();
+let _currentSessionId = 0;
 
 function getSDKUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_SDK_URL;
@@ -59,23 +60,63 @@ export function loadAndInitSDK(): Promise<GamiSDK> {
   return _sdkPromise;
 }
 
-export async function connectGami(host: string, gami: GamiSDK): Promise<void> {
-  if (_connected) return;
-  try {
-    await gami.connect(host);
-    _connected = true;
-  } catch {
-    try {
-      await gami.disconnect();
-    } catch { /* ignore disconnect errors */ }
-    _connected = false;
-    await gami.connect(host);
-    _connected = true;
-  }
+export interface SessionHandle {
+  gami: GamiSDK;
+  sessionId: number;
+  isStale: () => boolean;
 }
 
-export function resetConnectionState(): void {
-  _connected = false;
+export function initSession(
+  useCaseId: UseCaseId,
+  lang: Language,
+  onPhase: (phase: string) => void,
+): { promise: Promise<SessionHandle>; cancel: () => void } {
+  const sessionId = ++_currentSessionId;
+  let cancelled = false;
+
+  const cancel = () => { cancelled = true; };
+  const isStale = () => cancelled || sessionId !== _currentSessionId;
+
+  const promise = new Promise<SessionHandle>((resolve, reject) => {
+    _initChain = _initChain
+      .catch(() => {})
+      .then(async () => {
+        if (isStale()) { reject(new Error('cancelled')); return; }
+
+        onPhase('loading_sdk');
+        const gami = await loadAndInitSDK();
+        if (isStale()) { reject(new Error('cancelled')); return; }
+
+        onPhase('connecting');
+        try {
+          await gami.disconnect();
+        } catch { /* may not be connected yet */ }
+        await gami.connect('gamilab.ch');
+        if (isStale()) { reject(new Error('cancelled')); return; }
+
+        const portalId = getPortalId(useCaseId, lang);
+        onPhase('joining_portal');
+        await gami.use_portal(portalId);
+        if (isStale()) { reject(new Error('cancelled')); return; }
+
+        onPhase('creating_thread');
+        const threadInfo = await gami.create_thread();
+        console.log('[Gamilab] thread →', threadInfo.thread_id);
+        if (isStale()) { reject(new Error('cancelled')); return; }
+
+        onPhase('ready');
+        resolve({ gami, sessionId, isStale });
+      })
+      .catch((err) => {
+        if (!isStale()) reject(err);
+      });
+  });
+
+  return { promise, cancel };
+}
+
+export function invalidateSession(): void {
+  _currentSessionId++;
 }
 
 const PORTAL_IDS_BY_LANG: Record<Language, Record<UseCaseId, string>> = {
