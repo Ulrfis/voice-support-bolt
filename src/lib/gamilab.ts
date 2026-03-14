@@ -2,15 +2,21 @@ import type { UseCaseId, Language, Ticket, Priority, Category, Tag } from '../ty
 import { pushLog } from './debugLog';
 
 export interface GamiSDK {
-  connect: (host: string) => Promise<void>;
+  connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   use_portal: (portal_id: string) => Promise<void>;
   create_thread: () => Promise<{ thread_id: string; token: string }>;
+  resume_thread: (thread_id: string) => Promise<{ thread_id: string; token: string }>;
   start_recording: () => Promise<void>;
   pause_recording: () => Promise<void>;
   toggle_recording: () => Promise<void>;
   resume_recording: () => Promise<void>;
   is_recording: () => boolean;
+  append_delta: (verb: string, path: string, value: string) => Promise<void>;
+  extract: () => Promise<void>;
+  set_auto_extract: (val: boolean) => Promise<void>;
+  is_extracting: () => boolean;
+  get_state: (key: string) => unknown;
   on: (evt: string, cb: (...args: unknown[]) => void) => symbol;
   off: (ref: symbol) => void;
 }
@@ -20,7 +26,6 @@ const SDK_SCRIPT_ID = 'gamilab-sdk-script';
 
 let _sdkPromise: Promise<GamiSDK> | null = null;
 let _sdkInstance: GamiSDK | null = null;
-let _connected = false;
 let _initChain: Promise<void> = Promise.resolve();
 let _currentSessionId = 0;
 
@@ -35,11 +40,14 @@ const _debugEnabled = new URLSearchParams(window.location.search).has('debug');
 function wrapSDK(raw: GamiSDK): GamiSDK {
   if (!_debugEnabled) return raw;
 
-  type AsyncMethodName = 'connect' | 'disconnect' | 'use_portal' | 'create_thread' | 'start_recording' | 'pause_recording' | 'toggle_recording' | 'resume_recording';
+  type AsyncMethodName = 'connect' | 'disconnect' | 'use_portal' | 'create_thread' | 'resume_thread'
+    | 'start_recording' | 'pause_recording' | 'toggle_recording' | 'resume_recording'
+    | 'append_delta' | 'extract' | 'set_auto_extract';
 
   const asyncMethods: AsyncMethodName[] = [
-    'connect', 'disconnect', 'use_portal', 'create_thread',
+    'connect', 'disconnect', 'use_portal', 'create_thread', 'resume_thread',
     'start_recording', 'pause_recording', 'toggle_recording', 'resume_recording',
+    'append_delta', 'extract', 'set_auto_extract',
   ];
 
   const wrapper: GamiSDK = Object.create(raw);
@@ -59,9 +67,15 @@ function wrapSDK(raw: GamiSDK): GamiSDK {
   });
 
   wrapper.is_recording = (): boolean => {
-    const val = raw.is_recording();
-    pushLog('out', 'sdk-call', 'is_recording', val);
-    return val;
+    return raw.is_recording();
+  };
+
+  wrapper.is_extracting = (): boolean => {
+    return raw.is_extracting();
+  };
+
+  wrapper.get_state = (key: string): unknown => {
+    return raw.get_state(key);
   };
 
   wrapper.on = (evt: string, cb: (...args: unknown[]) => void): symbol => {
@@ -144,8 +158,7 @@ export function initSession(
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('connecting');
-        await gami.connect('gamilab.ch');
-        _connected = true;
+        await gami.connect();
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         const portalId = getPortalId(useCaseId, lang);
