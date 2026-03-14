@@ -171,6 +171,10 @@ export function initSession(
         console.log('[Gamilab] thread →', threadInfo.thread_id);
         if (isStale()) { reject(new Error('cancelled')); return; }
 
+        onPhase('registering_events');
+        await gami.set_auto_extract(true);
+        if (isStale()) { reject(new Error('cancelled')); return; }
+
         onPhase('ready');
         resolve({ gami, sessionId, isStale });
       })
