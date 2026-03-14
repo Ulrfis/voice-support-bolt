@@ -32,67 +32,53 @@ function getSDKUrl(): string {
 
 const _debugEnabled = new URLSearchParams(window.location.search).has('debug');
 
-const _asyncMethods = new Set([
-  'connect', 'disconnect', 'use_portal', 'create_thread',
-  'start_recording', 'pause_recording', 'toggle_recording', 'resume_recording',
-]);
-
 function wrapSDK(raw: GamiSDK): GamiSDK {
   if (!_debugEnabled) return raw;
 
-  const _eventCbMap = new WeakMap<Function, Function>();
+  type AsyncMethodName = 'connect' | 'disconnect' | 'use_portal' | 'create_thread' | 'start_recording' | 'pause_recording' | 'toggle_recording' | 'resume_recording';
 
-  return new Proxy(raw, {
-    get(target, prop, receiver) {
-      const value = Reflect.get(target, prop, receiver);
+  const asyncMethods: AsyncMethodName[] = [
+    'connect', 'disconnect', 'use_portal', 'create_thread',
+    'start_recording', 'pause_recording', 'toggle_recording', 'resume_recording',
+  ];
 
-      if (typeof value !== 'function') return value;
-      const name = String(prop);
+  const wrapper: GamiSDK = Object.create(raw);
 
-      if (name === 'on') {
-        return (evt: string, cb: (...args: unknown[]) => void): symbol => {
-          pushLog('out', 'sdk-event', `on("${evt}")`, 'registering');
-          const wrappedCb = (...args: unknown[]) => {
-            pushLog('in', 'sdk-event', evt, args.length === 1 ? args[0] : args);
-            cb(...args);
-          };
-          _eventCbMap.set(cb, wrappedCb);
-          return value.call(target, evt, wrappedCb);
-        };
+  asyncMethods.forEach((name) => {
+    wrapper[name] = async (...args: unknown[]): Promise<unknown> => {
+      pushLog('out', 'sdk-call', name, args.length ? args : undefined);
+      try {
+        const result = await (raw[name] as (...a: unknown[]) => Promise<unknown>)(...args);
+        pushLog('in', 'sdk-call', `${name} OK`, result ?? undefined);
+        return result;
+      } catch (err) {
+        pushLog('error', 'sdk-call', `${name} FAIL`, err);
+        throw err;
       }
-
-      if (name === 'off') {
-        return (ref: symbol): void => {
-          pushLog('out', 'sdk-event', 'off', String(ref));
-          value.call(target, ref);
-        };
-      }
-
-      if (name === 'is_recording') {
-        return (): boolean => {
-          const val = value.call(target);
-          pushLog('out', 'sdk-call', 'is_recording', val);
-          return val;
-        };
-      }
-
-      if (_asyncMethods.has(name)) {
-        return async (...args: unknown[]): Promise<unknown> => {
-          pushLog('out', 'sdk-call', name, args.length ? args : undefined);
-          try {
-            const result = await value.apply(target, args);
-            pushLog('in', 'sdk-call', `${name} OK`, result ?? undefined);
-            return result;
-          } catch (err) {
-            pushLog('error', 'sdk-call', `${name} FAIL`, err);
-            throw err;
-          }
-        };
-      }
-
-      return typeof value === 'function' ? value.bind(target) : value;
-    },
+    };
   });
+
+  wrapper.is_recording = (): boolean => {
+    const val = raw.is_recording();
+    pushLog('out', 'sdk-call', 'is_recording', val);
+    return val;
+  };
+
+  wrapper.on = (evt: string, cb: (...args: unknown[]) => void): symbol => {
+    pushLog('out', 'sdk-event', `on("${evt}")`, 'registering');
+    const wrappedCb = (...args: unknown[]) => {
+      pushLog('in', 'sdk-event', evt, args.length === 1 ? args[0] : args);
+      cb(...args);
+    };
+    return raw.on(evt, wrappedCb);
+  };
+
+  wrapper.off = (ref: symbol): void => {
+    pushLog('out', 'sdk-event', 'off', String(ref));
+    raw.off(ref);
+  };
+
+  return wrapper;
 }
 
 export function loadAndInitSDK(): Promise<GamiSDK> {
