@@ -6,6 +6,24 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.3.5] - 2026-03-15
+
+### Corrigé
+- **Footer date** : mise à jour de "février 2026" → "mars 2026" en FR et "February 2026" → "March 2026" en EN dans `LanguageContext.tsx`
+
+---
+
+## [0.3.4] - 2026-03-15
+
+### Ajouté
+- **Extraction automatique en temps réel** : `set_auto_extract(true)` activé juste après `create_thread()` dans `gamilab.ts` — les champs structurés (device, symptôme, fréquence…) se remplissent désormais dynamiquement pendant l'enregistrement sans attendre l'arrêt
+- La progression passe de 0% à un pourcentage croissant au fur et à mesure que l'IA identifie les réponses aux questions clés
+
+### Corrigé
+- **Champs structurés statiques** : `set_auto_extract` est `false` par défaut dans le SDK Gamilab — sans l'activer, `thread:struct_current` ne se déclenchait jamais pendant l'enregistrement, laissant les questions à 0% répondues
+
+---
+
 ## [0.3.3] - 2026-02-27
 
 ### Corrigé

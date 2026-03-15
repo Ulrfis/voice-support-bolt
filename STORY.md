@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-02-27 (v0.3.3)
+> **Last Updated**: 2026-03-15 (v0.3.5)
 
 ---
 
@@ -331,6 +331,41 @@
 
 ---
 
+### 2026-03-15 — Activation set_auto_extract (Remplissage Dynamique Temps Réel) 🔷
+
+**Intent**: Les champs structurés (device, symptôme, fréquence…) restaient vides à 0% pendant l'enregistrement — l'utilisateur ne voyait aucun retour visuel que l'IA analysait ses réponses.
+
+**Prompt(s)**:
+> "il n'y a pas le fetch dynamique de la transformation opérée par Gamilab sur base de la transcription, pour remplir dynamiquement le schéma [...] Il faut que l'analyse opérée par la SDK Gamilab puisse remonter en live directement dans les champs prévus dans l'app, pour montrer à l'utilisateur qu'il répond aux diverses questions"
+
+**Tool**: Claude (Sonnet 4.6)
+
+**Outcome**:
+- `set_auto_extract(true)` ajouté dans `gamilab.ts` juste après `create_thread()`, avant `ready`
+- Les questions clés se remplissent désormais en temps réel pendant l'enregistrement
+- La progression monte dynamiquement de 0% au fur et à mesure que les réponses sont détectées
+- Build propre
+
+**Surprise**: `set_auto_extract` est `false` par défaut dans le SDK — cette information est dans la doc mais facile à manquer. Sans ce flag, le SDK transcrit correctement mais ne déclenche jamais `thread:struct_current` pendant l'enregistrement, rendant l'extraction silencieuse jusqu'à l'arrêt.
+
+**Friction**: Comportement apparemment normal (transcription live OK, enregistrement OK) mais extraction à 0% — le bug était invisible tant qu'on ne comparait pas la transcription avec les champs structurés.
+
+**Resolution**: Une ligne : `await gami.set_auto_extract(true)` dans la séquence d'init.
+
+**Time**: ~5 min
+
+---
+
+### 2026-03-15 — Mise à Jour Footer (Février → Mars) 🔹
+
+**Intent**: Mettre à jour la date dans le footer de l'application (février 2026 → mars 2026) en FR et EN.
+
+**Outcome**: `poweredByDate` mis à jour dans `LanguageContext.tsx` : `'mars 2026'` (FR) et `'March 2026'` (EN).
+
+**Time**: ~1 min
+
+---
+
 ### 2026-02-18 — Documentation & Changelog 🔹
 
 **Intent**: Documenter l'historique complet du projet dans CHANGELOG, README et STORY
@@ -390,6 +425,7 @@
 - 2026-02-19: Un log `thread:extraction_status → done` qui arrive immédiatement après `create_thread()` est un signal fort que le SDK opère sur un thread précédent (état corrompu), pas sur un thread frais. Ce pattern anormal aurait dû être identifié plus tôt.
 - 2026-02-19: Quand un SDK tiers peut silencieusement echouer (pas de timeout, pas d'erreur visible), toujours ajouter ses propres timeouts et retries. Une Promise qui ne resolve jamais est pire qu'une erreur explicite.
 - 2026-02-19: Pour un aller-retour entre deux ecrans qui enrichissent les memes donnees, ne pas essayer de reutiliser la session SDK -- creer une session fraiche et fusionner les resultats cote client. Le merge applicatif est plus previsible et debuggable qu'un resume d'etat SDK interne.
+- 2026-03-15: Les flags d'activation dans les SDK (`set_auto_extract`, etc.) sont souvent `false` par défaut pour des raisons de performance. Si un comportement attendu ne se déclenche pas, chercher d'abord un flag de configuration avant de creuser dans la logique applicative.
 - 2026-02-19: Lire la doc SDK avant d'ajouter des gardes applicatives. Si le SDK gère le retry, les permissions micro, l'historique complet et les données complètes — ne pas le réimplémenter. Une surcouche qui double le SDK crée des conflits silencieux (ex : transcript dupliqué) et du code mort à maintenir.
 - 2026-02-19: Quand une fonction singleton est appelee deux fois, c'est un bug dans le code appelant. La bonne reponse est `throw`, pas retourner silencieusement un cache. Le pattern d'assertion (fail-fast) expose les bugs a la source au lieu de les masquer derriere une tolerance silencieuse qui complique le debug.
 
