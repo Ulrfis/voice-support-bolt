@@ -4,7 +4,7 @@ import { pushLog } from './debugLog';
 export interface GamiSDK {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
-  use_portal: (portal_id: string) => Promise<void>;
+  use_portal: (config: { portal_id: number; token: string }) => Promise<void>;
   create_thread: () => Promise<{ thread_id: string; token: string }>;
   resume_thread: (thread_id: string) => Promise<{ thread_id: string; token: string }>;
   start_recording: () => Promise<void>;
@@ -161,9 +161,9 @@ export function initSession(
         await gami.connect();
         if (isStale()) { reject(new Error('cancelled')); return; }
 
-        const portalId = getPortalId(useCaseId, lang);
+        const portalConfig = getPortalConfig(useCaseId, lang);
         onPhase('joining_portal');
-        await gami.use_portal(portalId);
+        await gami.use_portal(portalConfig);
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('creating_thread');
@@ -190,23 +190,52 @@ export function invalidateSession(): void {
   _currentSessionId++;
 }
 
-const PORTAL_IDS_BY_LANG: Record<Language, Record<UseCaseId, string>> = {
+interface PortalConfig {
+  portal_id: number;
+  token: string;
+}
+
+const PORTAL_CONFIGS_BY_LANG: Record<Language, Record<UseCaseId, PortalConfig>> = {
   fr: {
-    it_support: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT,
-    ecommerce: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE,
-    saas: import.meta.env.VITE_GAMILAB_PORTAL_SAAS,
-    dev_portal: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL,
+    it_support: {
+      portal_id: Number(import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_ID),
+      token: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_TOKEN,
+    },
+    ecommerce: {
+      portal_id: Number(import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_ID),
+      token: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_TOKEN,
+    },
+    saas: {
+      portal_id: Number(import.meta.env.VITE_GAMILAB_PORTAL_SAAS_ID),
+      token: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_TOKEN,
+    },
+    dev_portal: {
+      portal_id: Number(import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_ID),
+      token: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_TOKEN,
+    },
   },
   en: {
-    it_support: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_EN,
-    ecommerce: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_EN,
-    saas: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_EN,
-    dev_portal: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_EN,
+    it_support: {
+      portal_id: Number(import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_ID),
+      token: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_TOKEN,
+    },
+    ecommerce: {
+      portal_id: Number(import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_EN_ID),
+      token: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_EN_TOKEN,
+    },
+    saas: {
+      portal_id: Number(import.meta.env.VITE_GAMILAB_PORTAL_SAAS_EN_ID),
+      token: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_EN_TOKEN,
+    },
+    dev_portal: {
+      portal_id: Number(import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_ID),
+      token: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_TOKEN,
+    },
   },
 };
 
-export function getPortalId(useCaseId: UseCaseId, lang: Language): string {
-  return PORTAL_IDS_BY_LANG[lang]?.[useCaseId] || PORTAL_IDS_BY_LANG.fr[useCaseId];
+export function getPortalConfig(useCaseId: UseCaseId, lang: Language): PortalConfig {
+  return PORTAL_CONFIGS_BY_LANG[lang]?.[useCaseId] || PORTAL_CONFIGS_BY_LANG.fr[useCaseId];
 }
 
 const validPriorities: Priority[] = ['critical', 'high', 'medium', 'low'];
