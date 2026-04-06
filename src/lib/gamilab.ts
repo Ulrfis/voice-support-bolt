@@ -2,9 +2,9 @@ import type { UseCaseId, Language, Ticket, Priority, Category, Tag } from '../ty
 import { pushLog } from './debugLog';
 
 export interface GamiSDK {
-  connect: () => Promise<void>;
+  connect: (host?: null) => Promise<void>;
   disconnect: () => Promise<void>;
-  use_portal: (config: { portal_id: number; token: string }) => Promise<void>;
+  use_portal: (portalIdOrOpts: number | { portal_id: number; token: string }, token?: string) => Promise<void>;
   create_thread: () => Promise<{ thread_id: string; token: string }>;
   resume_thread: (thread_id: string) => Promise<{ thread_id: string; token: string }>;
   start_recording: () => Promise<void>;
@@ -15,8 +15,11 @@ export interface GamiSDK {
   append_delta: (verb: string, path: string, value: string) => Promise<void>;
   extract: () => Promise<void>;
   set_auto_extract: (val: boolean) => Promise<void>;
+  set_extraction_context: (ctx: Record<string, string>) => Promise<void>;
   is_extracting: () => boolean;
   get_state: (key: string) => unknown;
+  get_model: () => unknown;
+  get_portal: () => unknown;
   on: (evt: string, cb: (...args: unknown[]) => void) => symbol;
   off: (ref: symbol) => void;
 }
@@ -158,12 +161,12 @@ export function initSession(
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('connecting');
-        await gami.connect();
+        await gami.connect(null);
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         const portalConfig = getPortalConfig(useCaseId, lang);
         onPhase('joining_portal');
-        await gami.use_portal(portalConfig);
+        await gami.use_portal(portalConfig.portal_id, portalConfig.token);
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('creating_thread');
