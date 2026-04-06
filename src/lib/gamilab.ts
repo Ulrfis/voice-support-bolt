@@ -2,9 +2,9 @@ import type { UseCaseId, Language, Ticket, Priority, Category, Tag } from '../ty
 import { pushLog } from './debugLog';
 
 export interface GamiSDK {
-  connect: (host?: null) => Promise<void>;
+  connect: (host: string) => Promise<void>;
   disconnect: () => Promise<void>;
-  use_portal: (portalIdOrOpts: number | { portal_id: number; token: string }, token?: string) => Promise<void>;
+  use_portal: (portalIdOrOpts: string | number | { portal_id: number; token: string }, token?: string) => Promise<void>;
   create_thread: () => Promise<{ thread_id: string; token: string }>;
   resume_thread: (thread_id: string) => Promise<{ thread_id: string; token: string }>;
   start_recording: () => Promise<void>;
@@ -161,13 +161,12 @@ export function initSession(
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('connecting');
-        await gami.connect();
+        await gami.connect('gamilab.ch');
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         const portalConfig = getPortalConfig(useCaseId, lang);
-        console.log('[Gamilab] use_portal config:', { portal_id: portalConfig.portal_id, hasToken: !!portalConfig.token, tokenLen: portalConfig.token?.length });
         onPhase('joining_portal');
-        await gami.use_portal(portalConfig.portal_id, portalConfig.token);
+        await gami.use_portal({ portal_id: portalConfig.portal_id, token: portalConfig.token });
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('creating_thread');
@@ -176,7 +175,13 @@ export function initSession(
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('registering_events');
-        await gami.set_auto_extract(true);
+        try {
+          if (typeof gami.set_auto_extract === 'function') {
+            await gami.set_auto_extract(true);
+          }
+        } catch (e) {
+          console.warn('[Gamilab] set_auto_extract not available:', e);
+        }
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('ready');

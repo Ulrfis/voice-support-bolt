@@ -138,8 +138,8 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
 
     const refs: symbol[] = [];
 
-    refs.push(gami.on('audio', (state: unknown) => {
-      console.log('[Gamilab] audio →', state);
+    refs.push(gami.on('audio:recording', (state: unknown) => {
+      console.log('[Gamilab] audio:recording →', state);
       if (!mountedRef.current) return;
       const recording = state === 'recording';
       const isIdle = state === 'idle';
@@ -149,18 +149,18 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       }
     }));
 
-    refs.push(gami.on('text_current', (text: unknown) => {
+    refs.push(gami.on('thread:text_current', (text: unknown) => {
       if (!mountedRef.current) return;
       setLiveText(typeof text === 'string' ? text : '');
     }));
 
-    refs.push(gami.on('text_history', (text: unknown) => {
+    refs.push(gami.on('thread:text_history', (text: unknown) => {
       if (!mountedRef.current) return;
       setTranscript(typeof text === 'string' ? text : '');
       setLiveText('');
     }));
 
-    refs.push(gami.on('struct_current', (data: unknown) => {
+    refs.push(gami.on('thread:struct_current', (data: unknown) => {
       if (!mountedRef.current) return;
       const mapped = mapStructToTicket(data as Record<string, unknown>);
       if (Object.keys(mapped).length > 0) {
@@ -168,10 +168,10 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       }
     }));
 
-    refs.push(gami.on('extraction_status', (status: unknown) => {
-      console.log(`[Gamilab] extraction_status → ${status} (finalizing: ${finalizingRef.current})`);
+    refs.push(gami.on('thread:extraction_status', (status: unknown) => {
+      console.log(`[Gamilab] thread:extraction_status → ${status} (finalizing: ${finalizingRef.current})`);
       if (!mountedRef.current) return;
-      if (status === 'idle' && finalizingRef.current) {
+      if (status === 'done' && finalizingRef.current) {
         finalizeExtraction();
       }
     }));
