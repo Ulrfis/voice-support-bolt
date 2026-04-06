@@ -3,7 +3,7 @@
 > **Status**: 🟡 In Progress
 > **Creator**: Ulrich Fischer
 > **Started**: 2025-11-30
-> **Last Updated**: 2026-03-15 (v0.3.5)
+> **Last Updated**: 2026-04-06 (v0.4.0)
 
 ---
 
@@ -376,6 +376,35 @@
 
 ---
 
+### 2026-04-06 — Découplage Bolt.new & Portabilité Déploiement 🔷
+
+**Intent**: Rendre l'app entièrement deployable hors de la plateforme Bolt.new — sur Coolify, Netlify, Railway, Docker ou n'importe quel environnement standard.
+
+**Prompt(s)**:
+> "Il faut aussi assurer que l'app peut fonctionner en dehors de l'environnement Bolt; bien regarder les dépendances à Bolt et tout faire pour pouvoir deploy ailleurs que dans Bolt"
+
+**Tool**: Claude (Sonnet 4.6)
+
+**Outcome**:
+- Audit complet du codebase — aucune dépendance runtime à Bolt trouvée, uniquement 3 points techniques à corriger
+- `vite.config.ts` : suppression du plugin `safePublicCopy` (workaround d'un bug de permissions Bolt) — Vite utilise maintenant son mécanisme standard de copie des assets publics
+- `index.html` : suppression du snippet PostHog hardcodé avec clé API en clair — PostHog est déjà initialisé correctement dans `main.tsx` via `import.meta.env`, le snippet HTML créait une double initialisation
+- `netlify.toml` : `npx vite build` remplacé par `npm run build`
+- `Dockerfile` multi-stage ajouté (Node 20 pour le build, Nginx Alpine pour servir)
+- `nginx.conf` avec règle `try_files` pour le routage SPA et compression gzip
+- `docs/deploy-coolify.md` entièrement réécrit avec guide pas-à-pas Coolify, explication des build variables, checklist et troubleshooting
+- Build propre, logos dans le `dist/`, zéro changement comportemental
+
+**Surprise**: Le plugin `safePublicCopy` dans `vite.config.ts` était silencieusement nécessaire dans Bolt (qui a des restrictions sur la lecture des fichiers `public/`), mais invisible en tant que dette de plateforme. Sans cet audit, le build Vite standard en dehors de Bolt aurait fonctionné de toute façon — mais le plugin laissait une empreinte Bolt dans le code.
+
+**Friction**: La clé PostHog hardcodée dans `index.html` était passée inaperçue parce qu'elle coexistait avec l'init dans `main.tsx` sans causer d'erreur visible — juste une double initialisation silencieuse et un secret en clair dans le repo.
+
+**Resolution**: Audit systématique via agent d'exploration du codebase, corrections ciblées sans toucher à la logique métier.
+
+**Time**: ~10 min
+
+---
+
 ## Pivots & Breakages
 
 *Major direction changes, things that broke badly, abandoned approaches. This is where story gold lives.*
@@ -428,6 +457,8 @@
 - 2026-03-15: Les flags d'activation dans les SDK (`set_auto_extract`, etc.) sont souvent `false` par défaut pour des raisons de performance. Si un comportement attendu ne se déclenche pas, chercher d'abord un flag de configuration avant de creuser dans la logique applicative.
 - 2026-02-19: Lire la doc SDK avant d'ajouter des gardes applicatives. Si le SDK gère le retry, les permissions micro, l'historique complet et les données complètes — ne pas le réimplémenter. Une surcouche qui double le SDK crée des conflits silencieux (ex : transcript dupliqué) et du code mort à maintenir.
 - 2026-02-19: Quand une fonction singleton est appelee deux fois, c'est un bug dans le code appelant. La bonne reponse est `throw`, pas retourner silencieusement un cache. Le pattern d'assertion (fail-fast) expose les bugs a la source au lieu de les masquer derriere une tolerance silencieuse qui complique le debug.
+- 2026-04-06: Un outil de prototypage rapide (Bolt, Replit, Stackblitz…) introduit souvent des workarounds invisibles dans le code — plugins de build, scripts injectés, clés hardcodées. Avant de déployer en production ailleurs, toujours faire un audit explicite des fichiers de config (vite.config, index.html, .env) pour détecter ces résidus de plateforme.
+- 2026-04-06: Une double initialisation d'un SDK analytics (PostHog dans index.html ET dans main.tsx) ne génère pas d'erreur visible — elle crée juste du bruit de tracking et expose une clé API en clair dans le repo. Les secrets en dur dans les fichiers HTML ne sont jamais acceptables, même en prototype.
 
 ---
 

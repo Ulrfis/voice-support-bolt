@@ -2,7 +2,7 @@
 
 > Transformez la voix de vos clients en tickets structurés, en temps réel.
 
-**Version** : 0.3.3 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
+**Version** : 0.4.0 | **Stack** : React + TypeScript + Vite + Tailwind + Supabase + Gamilab SDK
 
 ---
 
@@ -60,14 +60,23 @@ src/
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 
-# Gamilab
-VITE_GAMILAB_API_KEY=
-VITE_GAMILAB_PORTAL_IT_SUPPORT=33
-VITE_GAMILAB_PORTAL_ECOMMERCE=34
-VITE_GAMILAB_PORTAL_SAAS=35
-VITE_GAMILAB_PORTAL_DEV_PORTAL=36
+# Gamilab — Portails FR
+VITE_GAMILAB_PORTAL_IT_SUPPORT_ID=33
+VITE_GAMILAB_PORTAL_ECOMMERCE_ID=34
+VITE_GAMILAB_PORTAL_SAAS_ID=35
+VITE_GAMILAB_PORTAL_DEV_PORTAL_ID=36
 
-# Notion (optionnel — à activer pour le push)
+# Gamilab — Portails EN
+VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_ID=33
+VITE_GAMILAB_PORTAL_ECOMMERCE_EN_ID=43
+VITE_GAMILAB_PORTAL_SAAS_EN_ID=44
+VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_ID=45
+
+# PostHog (analytics)
+VITE_POSTHOG_KEY=
+VITE_POSTHOG_HOST=https://eu.i.posthog.com
+
+# Notion (optionnel — à activer pour le push via Edge Function)
 VITE_NOTION_TOKEN=
 VITE_NOTION_DATABASE_ID=
 ```
@@ -127,6 +136,31 @@ npm run dev
 
 ---
 
+## Déploiement
+
+### Docker / Coolify
+
+Le projet inclut un `Dockerfile` multi-stage (Node 20 → Nginx Alpine) prêt à l'emploi :
+
+```bash
+docker build -t audiogami .
+docker run -p 8080:80 audiogami
+```
+
+Pour Coolify : sélectionner **Dockerfile** comme build pack, port `80`. Toutes les variables `VITE_*` doivent être configurées en **Build Variables** dans Coolify (elles sont embarquées au moment du build).
+
+Voir `docs/deploy-coolify.md` pour le guide complet.
+
+### Netlify
+
+```bash
+npm run build
+```
+
+Le `netlify.toml` configure automatiquement le build et les redirects SPA.
+
+---
+
 ## Compatibilité responsive
 
 L'application est entièrement optimisée pour desktop et smartphone :
@@ -149,3 +183,4 @@ L'application est entièrement optimisée pour desktop et smartphone :
 - **Icônes** : Lucide React
 - **Analytics** : PostHog
 - **Push externe** : Notion (scaffolding — à implémenter)
+- **Conteneur** : Docker (Nginx Alpine), compatible Coolify, Railway, Render, etc.

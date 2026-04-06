@@ -6,6 +6,24 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.4.0] - 2026-04-06
+
+### Modifié
+- **Découplage Bolt.new** : suppression de toutes les dépendances à la plateforme Bolt, l'app est désormais deployable partout
+- **`vite.config.ts`** : suppression du plugin `safePublicCopy` (contournement d'un bug de permissions propre à Bolt) — Vite copie maintenant les fichiers `public/` via son comportement standard
+- **`index.html`** : suppression du snippet PostHog hardcodé avec clé API en clair — PostHog est initialisé exclusivement dans `main.tsx` via `import.meta.env`
+- **`netlify.toml`** : remplacement de `npx vite build` par `npm run build` (commande standard du `package.json`)
+
+### Ajouté
+- **`Dockerfile`** : build multi-stage Node 20 → Nginx Alpine, prêt pour Coolify et tout environnement Docker
+- **`nginx.conf`** : configuration Nginx avec règle SPA (`try_files`) et compression gzip
+- **`docs/deploy-coolify.md`** : guide de déploiement complet réécrit — Dockerfile, variables d'environnement build-time, checklist post-déploiement, troubleshooting
+
+### Sécurité
+- Suppression de la clé PostHog exposée en clair dans `index.html`
+
+---
+
 ## [0.3.5] - 2026-03-15
 
 ### Corrigé
