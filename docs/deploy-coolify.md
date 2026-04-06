@@ -68,18 +68,26 @@ VITE_SUPABASE_ANON_KEY=<votre_clef_anon_supabase>
 
 ```
 VITE_GAMILAB_PORTAL_IT_SUPPORT_ID=33
+VITE_GAMILAB_PORTAL_IT_SUPPORT_TOKEN=<embed_token_portal_it_support_fr>
 VITE_GAMILAB_PORTAL_ECOMMERCE_ID=34
+VITE_GAMILAB_PORTAL_ECOMMERCE_TOKEN=<embed_token_portal_ecommerce_fr>
 VITE_GAMILAB_PORTAL_SAAS_ID=35
+VITE_GAMILAB_PORTAL_SAAS_TOKEN=<embed_token_portal_saas_fr>
 VITE_GAMILAB_PORTAL_DEV_PORTAL_ID=36
+VITE_GAMILAB_PORTAL_DEV_PORTAL_TOKEN=<embed_token_portal_dev_fr>
 ```
 
 ### Gamilab SDK — Portails EN
 
 ```
 VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_ID=33
+VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_TOKEN=<embed_token_portal_it_support_en>
 VITE_GAMILAB_PORTAL_ECOMMERCE_EN_ID=43
+VITE_GAMILAB_PORTAL_ECOMMERCE_EN_TOKEN=<embed_token_portal_ecommerce_en>
 VITE_GAMILAB_PORTAL_SAAS_EN_ID=44
+VITE_GAMILAB_PORTAL_SAAS_EN_TOKEN=<embed_token_portal_saas_en>
 VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_ID=45
+VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_TOKEN=<embed_token_portal_dev_en>
 ```
 
 ### PostHog (analytics)
@@ -160,7 +168,9 @@ Les variables `VITE_*` sont embarquees **au moment du build** dans le bundle JS.
 
 ### Le SDK Gamilab ne se charge pas
 
-Verifier que le serveur autorise les connexions sortantes vers `gamilab.ch`. Le SDK est charge depuis `https://gamilab.ch/js/sdk.js`. Aucune cle d'API n'est necessaire pour le SDK browser — les portails utilises sont publics.
+Verifier que le serveur autorise les connexions sortantes vers `gamilab.ch`. Le SDK est charge depuis `https://gamilab.ch/js/sdk.js`.
+
+Si la console affiche `join crashed`, verifier d'abord que le portail est appele avec son **embed token** (`use_portal(id, token)`) et que toutes les variables `VITE_GAMILAB_PORTAL_*_TOKEN` sont bien definies en **Build Variable** avant de redeployer.
 
 ### Erreur PostHog au demarrage
 

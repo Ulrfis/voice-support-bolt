@@ -62,15 +62,23 @@ VITE_SUPABASE_ANON_KEY=
 
 # Gamilab — Portails FR
 VITE_GAMILAB_PORTAL_IT_SUPPORT_ID=33
+VITE_GAMILAB_PORTAL_IT_SUPPORT_TOKEN=
 VITE_GAMILAB_PORTAL_ECOMMERCE_ID=34
+VITE_GAMILAB_PORTAL_ECOMMERCE_TOKEN=
 VITE_GAMILAB_PORTAL_SAAS_ID=35
+VITE_GAMILAB_PORTAL_SAAS_TOKEN=
 VITE_GAMILAB_PORTAL_DEV_PORTAL_ID=36
+VITE_GAMILAB_PORTAL_DEV_PORTAL_TOKEN=
 
 # Gamilab — Portails EN
 VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_ID=33
+VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_TOKEN=
 VITE_GAMILAB_PORTAL_ECOMMERCE_EN_ID=43
+VITE_GAMILAB_PORTAL_ECOMMERCE_EN_TOKEN=
 VITE_GAMILAB_PORTAL_SAAS_EN_ID=44
+VITE_GAMILAB_PORTAL_SAAS_EN_TOKEN=
 VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_ID=45
+VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_TOKEN=
 
 # PostHog (analytics)
 VITE_POSTHOG_KEY=
@@ -95,8 +103,8 @@ Initialisation via l'événement `gami:init` (géré dans `src/lib/gamilab.ts`) 
 
 ```typescript
 const gami = await waitForGami();      // attend que le SDK soit prêt
-await connectGami('gamilab.ch');       // connexion idempotente (une seule fois par session)
-await gami.use_portal('33');           // portal IT Support
+await connectGami();                   // connexion idempotente (une seule fois par session)
+await gami.use_portal('33', TOKEN);    // portal IT Support + embed token
 await gami.create_thread();
 await gami.start_recording();          // démarre le micro
 ```
@@ -107,11 +115,11 @@ await gami.start_recording();          // démarre le micro
 
 | Événement | Usage |
 |-----------|-------|
-| `audio:recording` | Mise à jour de l'état bouton (idle / recording / paused) |
-| `thread:text_current` | Transcription live avec curseur animé |
-| `thread:text_history` | Historique complet de transcription (fourni entier par le SDK) |
-| `thread:struct_current` | Données structurées complètes en temps réel → `Partial<Ticket>` (fournies entières par le SDK) |
-| `thread:extraction_status` | Détecte la fin de l'extraction après arrêt |
+| `audio` | Mise à jour de l'état bouton (idle / recording / paused) |
+| `text_current` | Transcription live avec curseur animé |
+| `text_history` | Historique complet de transcription (fourni entier par le SDK) |
+| `struct_current` | Données structurées complètes en temps réel → `Partial<Ticket>` (fournies entières par le SDK) |
+| `extraction_status` | Détecte la fin de l'extraction après arrêt |
 
 ---
 

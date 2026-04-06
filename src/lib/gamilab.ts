@@ -2,9 +2,12 @@ import type { UseCaseId, Language, Ticket, Priority, Category, Tag } from '../ty
 import { pushLog } from './debugLog';
 
 export interface GamiSDK {
-  connect: (host: string) => Promise<void>;
+  connect: (host?: string | null) => Promise<void>;
   disconnect: () => Promise<void>;
-  use_portal: (portal_id: string) => Promise<void>;
+  use_portal: (
+    portal_id_or_opts: string | number | { portal_id: string | number; token: string },
+    token?: string,
+  ) => Promise<void>;
   create_thread: () => Promise<{ thread_id: string; token: string }>;
   resume_thread: (thread_id: string) => Promise<{ thread_id: string; token: string }>;
   start_recording: () => Promise<void>;
@@ -49,12 +52,14 @@ function wrapSDK(raw: GamiSDK): GamiSDK {
   ];
 
   const wrapper: GamiSDK = Object.create(raw);
+  const rawAsync = raw as unknown as Record<AsyncMethodName, (...args: unknown[]) => Promise<unknown>>;
+  const wrapperAsync = wrapper as unknown as Record<AsyncMethodName, (...args: unknown[]) => Promise<unknown>>;
 
   asyncMethods.forEach((name) => {
-    wrapper[name] = async (...args: unknown[]): Promise<unknown> => {
+    wrapperAsync[name] = async (...args: unknown[]): Promise<unknown> => {
       pushLog('out', 'sdk-call', name, args.length ? args : undefined);
       try {
-        const result = await (raw[name] as (...a: unknown[]) => Promise<unknown>)(...args);
+        const result = await rawAsync[name](...args);
         pushLog('in', 'sdk-call', `${name} OK`, result ?? undefined);
         return result;
       } catch (err) {
@@ -156,12 +161,19 @@ export function initSession(
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('connecting');
-        await gami.connect('gamilab.ch');
+        await gami.connect();
         if (isStale()) { reject(new Error('cancelled')); return; }
 
-        const portalId = getPortalId(useCaseId, lang);
+        const portal = getPortalConfig(useCaseId, lang);
         onPhase('joining_portal');
-        await gami.use_portal(String(portalId));
+        if (!portal.token) {
+          throw new Error(`[Gamilab] Missing portal embed token: ${portal.tokenEnvKey}`);
+        }
+        pushLog('system', 'lifecycle', 'Joining portal', {
+          portal_id: portal.id,
+          token: `${portal.token.slice(0, 4)}...${portal.token.slice(-4)}`,
+        });
+        await gami.use_portal(String(portal.id), portal.token);
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('creating_thread');
@@ -194,23 +206,65 @@ export function invalidateSession(): void {
   _currentSessionId++;
 }
 
-const PORTAL_IDS_BY_LANG: Record<Language, Record<UseCaseId, string>> = {
+interface PortalConfig {
+  id: string;
+  token: string;
+  tokenEnvKey: string;
+}
+
+const PORTAL_CONFIG_BY_LANG: Record<Language, Record<UseCaseId, PortalConfig>> = {
   fr: {
-    it_support: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_ID || '33',
-    ecommerce: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_ID || '34',
-    saas: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_ID || '35',
-    dev_portal: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_ID || '36',
+    it_support: {
+      id: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_ID || '33',
+      token: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_TOKEN || '',
+      tokenEnvKey: 'VITE_GAMILAB_PORTAL_IT_SUPPORT_TOKEN',
+    },
+    ecommerce: {
+      id: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_ID || '34',
+      token: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_TOKEN || '',
+      tokenEnvKey: 'VITE_GAMILAB_PORTAL_ECOMMERCE_TOKEN',
+    },
+    saas: {
+      id: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_ID || '35',
+      token: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_TOKEN || '',
+      tokenEnvKey: 'VITE_GAMILAB_PORTAL_SAAS_TOKEN',
+    },
+    dev_portal: {
+      id: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_ID || '36',
+      token: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_TOKEN || '',
+      tokenEnvKey: 'VITE_GAMILAB_PORTAL_DEV_PORTAL_TOKEN',
+    },
   },
   en: {
-    it_support: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_ID || '33',
-    ecommerce: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_EN_ID || '43',
-    saas: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_EN_ID || '44',
-    dev_portal: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_ID || '45',
+    it_support: {
+      id: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_ID || '33',
+      token: import.meta.env.VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_TOKEN || '',
+      tokenEnvKey: 'VITE_GAMILAB_PORTAL_IT_SUPPORT_EN_TOKEN',
+    },
+    ecommerce: {
+      id: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_EN_ID || '43',
+      token: import.meta.env.VITE_GAMILAB_PORTAL_ECOMMERCE_EN_TOKEN || '',
+      tokenEnvKey: 'VITE_GAMILAB_PORTAL_ECOMMERCE_EN_TOKEN',
+    },
+    saas: {
+      id: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_EN_ID || '44',
+      token: import.meta.env.VITE_GAMILAB_PORTAL_SAAS_EN_TOKEN || '',
+      tokenEnvKey: 'VITE_GAMILAB_PORTAL_SAAS_EN_TOKEN',
+    },
+    dev_portal: {
+      id: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_ID || '45',
+      token: import.meta.env.VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_TOKEN || '',
+      tokenEnvKey: 'VITE_GAMILAB_PORTAL_DEV_PORTAL_EN_TOKEN',
+    },
   },
 };
 
 export function getPortalId(useCaseId: UseCaseId, lang: Language): string {
-  return PORTAL_IDS_BY_LANG[lang]?.[useCaseId] || PORTAL_IDS_BY_LANG.fr[useCaseId];
+  return PORTAL_CONFIG_BY_LANG[lang]?.[useCaseId]?.id || PORTAL_CONFIG_BY_LANG.fr[useCaseId].id;
+}
+
+function getPortalConfig(useCaseId: UseCaseId, lang: Language): PortalConfig {
+  return PORTAL_CONFIG_BY_LANG[lang]?.[useCaseId] || PORTAL_CONFIG_BY_LANG.fr[useCaseId];
 }
 
 const validPriorities: Priority[] = ['critical', 'high', 'medium', 'low'];

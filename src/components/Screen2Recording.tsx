@@ -137,8 +137,13 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
     }
 
     const refs: symbol[] = [];
+    const onEvent = (events: string[], handler: (payload: unknown) => void) => {
+      events.forEach((eventName) => {
+        refs.push(gami.on(eventName, handler));
+      });
+    };
 
-    refs.push(gami.on('audio:recording', (state: unknown) => {
+    onEvent(['audio', 'audio:recording'], (state: unknown) => {
       console.log('[Gamilab] audio:recording →', state);
       if (!mountedRef.current) return;
       const recording = state === 'recording';
@@ -147,34 +152,34 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
       if (isIdle && finalizingRef.current) {
         setIsProcessing(true);
       }
-    }));
+    });
 
-    refs.push(gami.on('thread:text_current', (text: unknown) => {
+    onEvent(['text_current', 'thread:text_current'], (text: unknown) => {
       if (!mountedRef.current) return;
       setLiveText(typeof text === 'string' ? text : '');
-    }));
+    });
 
-    refs.push(gami.on('thread:text_history', (text: unknown) => {
+    onEvent(['text_history', 'thread:text_history'], (text: unknown) => {
       if (!mountedRef.current) return;
       setTranscript(typeof text === 'string' ? text : '');
       setLiveText('');
-    }));
+    });
 
-    refs.push(gami.on('thread:struct_current', (data: unknown) => {
+    onEvent(['struct_current', 'thread:struct_current'], (data: unknown) => {
       if (!mountedRef.current) return;
       const mapped = mapStructToTicket(data as Record<string, unknown>);
       if (Object.keys(mapped).length > 0) {
         setStructData(prev => ({ ...prev, ...mapped }));
       }
-    }));
+    });
 
-    refs.push(gami.on('thread:extraction_status', (status: unknown) => {
+    onEvent(['extraction_status', 'thread:extraction_status'], (status: unknown) => {
       console.log(`[Gamilab] thread:extraction_status → ${status} (finalizing: ${finalizingRef.current})`);
       if (!mountedRef.current) return;
-      if (status === 'done' && finalizingRef.current) {
+      if ((status === 'done' || status === 'idle') && finalizingRef.current) {
         finalizeExtraction();
       }
-    }));
+    });
 
     eventRefsRef.current = refs;
   }, [finalizeExtraction]);
@@ -276,7 +281,7 @@ export function Screen2Recording({ useCaseId, initialData, existingTranscript, o
   };
 
   const handleRetry = () => {
-    startSession();
+    window.location.reload();
   };
 
   const handleContinue = () => {
