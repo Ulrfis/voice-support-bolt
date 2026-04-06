@@ -161,10 +161,11 @@ export function initSession(
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         onPhase('connecting');
-        await gami.connect(null);
+        await gami.connect();
         if (isStale()) { reject(new Error('cancelled')); return; }
 
         const portalConfig = getPortalConfig(useCaseId, lang);
+        console.log('[Gamilab] use_portal config:', { portal_id: portalConfig.portal_id, hasToken: !!portalConfig.token, tokenLen: portalConfig.token?.length });
         onPhase('joining_portal');
         await gami.use_portal(portalConfig.portal_id, portalConfig.token);
         if (isStale()) { reject(new Error('cancelled')); return; }
